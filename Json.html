@@ -103,12 +103,19 @@
       text-align: right;
       margin-right: 15px;
       opacity: 0.5;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     .line-text {
       flex: 1;
       white-space: pre;
       outline: none;
+    }
+
+    .editor-content.read-only .line-text {
+      cursor: default;
+      user-select: text;
     }
 
     /* GRID ESCRITORIO */
@@ -287,15 +294,25 @@
 
         <!-- Editor -->
         <section id="pane-edit" class="tab-pane bg-white flex flex-col">
-          <div class="p-4 border-b flex justify-between items-center shrink-0">
-            <div class="flex flex-col min-w-0">
+          <div class="p-4 border-b flex justify-between items-center gap-2 shrink-0">
+            <div class="flex flex-col min-w-0 flex-1">
               <span id="currentPath" class="text-[11px] font-mono font-bold text-blue-600 truncate">/root</span>
               <span id="nodeInfo" class="text-[9px] text-slate-400 uppercase font-black tracking-tighter">Nodo
                 raíz</span>
             </div>
-            <button onclick="deleteNode()"
-              class="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl active:scale-90"><span
-                class="iconify w-5 h-5" data-icon="solar:trash-bin-trash-linear"></span></button>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" onclick="copyPreviewJson()" title="Copiar JSON"
+                class="w-9 h-9 flex items-center justify-center text-slate-600 bg-slate-100 rounded-xl active:scale-90 hover:bg-slate-200 transition-colors">
+                <span class="iconify w-5 h-5" data-icon="solar:copy-linear"></span>
+              </button>
+              <button type="button" id="btnToggleEdit" onclick="toggleEditorEditable()" title="Habilitar edición"
+                class="w-9 h-9 flex items-center justify-center text-slate-500 bg-slate-50 rounded-xl active:scale-90 transition-colors">
+                <span id="iconToggleEdit" class="iconify w-5 h-5" data-icon="solar:eye-linear"></span>
+              </button>
+              <button type="button" onclick="deleteNode()"
+                class="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl active:scale-90"><span
+                  class="iconify w-5 h-5" data-icon="solar:trash-bin-trash-linear"></span></button>
+            </div>
           </div>
           <div id="editorUI" class="p-3 bg-slate-50 border-b shrink-0"></div>
           <div id="editorContainer" class="custom-scrollbar" onscroll="renderEditor()">
@@ -356,6 +373,7 @@
     let expandedPaths = new Set();
     let flatTree = [];
     let editorLines = [];
+    let editorEditable = false;
 
     const LINE_H = 24;
     const NODE_H = 48;
@@ -463,6 +481,53 @@
       renderTree();
     }
 
+    function syncEditorToolbar() {
+      const btn = document.getElementById('btnToggleEdit');
+      const icon = document.getElementById('iconToggleEdit');
+      if (!btn || !icon) return;
+      if (editorEditable) {
+        icon.setAttribute('data-icon', 'solar:pen-linear');
+        btn.classList.add('bg-blue-50', 'text-blue-600');
+        btn.classList.remove('bg-slate-50', 'text-slate-500');
+        btn.title = 'Bloquear edición';
+      } else {
+        icon.setAttribute('data-icon', 'solar:eye-linear');
+        btn.classList.remove('bg-blue-50', 'text-blue-600');
+        btn.classList.add('bg-slate-50', 'text-slate-500');
+        btn.title = 'Habilitar edición';
+      }
+      if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan();
+    }
+
+    function toggleEditorEditable() {
+      editorEditable = !editorEditable;
+      syncEditorToolbar();
+      renderEditor();
+    }
+
+    async function copyPreviewJson() {
+      const text = editorLines.join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('JSON copiado al portapapeles', 'solar:copy-linear');
+      } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          showToast('JSON copiado al portapapeles', 'solar:copy-linear');
+        } catch (e) {
+          showToast('No se pudo copiar', 'solar:danger-linear');
+        }
+        document.body.removeChild(ta);
+      }
+    }
+
     function renderEditor() {
       const vp = document.getElementById('editorContainer');
       const cont = document.getElementById('editorContent');
@@ -471,12 +536,17 @@
       const start = Math.max(0, Math.floor(st / LINE_H) - 5);
       const end = Math.min(editorLines.length, Math.ceil((vp.clientHeight + st) / LINE_H) + 5);
       cont.style.transform = `translateY(${start * LINE_H}px)`;
-      cont.innerHTML = editorLines.slice(start, end).map((line, i) => `
+      cont.classList.toggle('read-only', !editorEditable);
+      cont.innerHTML = editorLines.slice(start, end).map((line, i) => {
+        const idx = start + i;
+        const blurAttr = editorEditable ? ` onblur="editorLines[${idx}] = this.innerText"` : '';
+        return `
                 <div class="line-row">
-                    <span class="line-num">${start + i + 1}</span>
-                    <div class="line-text" contenteditable="true" spellcheck="false" onblur="editorLines[${start + i}] = this.innerText">${line}</div>
+                    <span class="line-num">${idx + 1}</span>
+                    <div class="line-text" contenteditable="${editorEditable ? 'true' : 'false'}" spellcheck="false"${blurAttr}>${line}</div>
                 </div>
-            `).join('');
+            `;
+      }).join('');
     }
 
     function addRule(prop = "") {
@@ -644,7 +714,7 @@
     };
 
     window.onclick = (e) => { if (!e.target.closest('.custom-dropdown')) document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('active')); };
-    window.onload = renderDashboard;
+    window.onload = () => { renderDashboard(); syncEditorToolbar(); };
   </script>
 </body>
 
