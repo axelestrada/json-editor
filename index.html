@@ -604,11 +604,54 @@
     const ACTIONS = [
       { id: 'uuid', label: 'ID Único (UUID)', icon: 'solar:hashtag-square-linear' },
       { id: 'date', label: 'Fecha ISO 8601', icon: 'solar:calendar-linear' },
-      { id: 'timestamp', label: 'Timestamp ms', icon: 'solar:clock-circle-linear' },
+      { id: 'timestamp', label: 'Timestamp', icon: 'solar:clock-circle-linear' },
       { id: 'to_str', label: 'Convertir a Texto', icon: 'solar:text-field-linear' },
-      { id: 'to_num', label: 'Convertir a Número', icon: 'solar:sort-vertical-linear' },
+      { id: 'to_num', label: 'Convertir a Número', icon: 'solar:hashtag-square-linear' },
+      { id: 'to_bool', label: 'Convertir a Booleano', icon: 'solar:check-circle-linear' },
       { id: 'custom', label: 'Valor Personalizado', icon: 'solar:pen-linear' }
     ];
+
+    function parseCustomValueByType(raw, type) {
+      const t = (raw ?? '').trim();
+      switch (type) {
+        case 'string':
+          return raw == null ? '' : String(raw);
+        case 'number': {
+          if (t === '') return 0;
+          const n = Number(t);
+          return Number.isFinite(n) ? n : 0;
+        }
+        case 'boolean': {
+          const s = t.toLowerCase();
+          if (['true', '1', 'yes', 'sí', 'si', 'verdadero'].includes(s)) return true;
+          if (['false', '0', 'no', 'falso', ''].includes(s)) return false;
+          return Boolean(t);
+        }
+        case 'null':
+          return null;
+        case 'json':
+          if (t === '') return null;
+          try {
+            return JSON.parse(t);
+          } catch {
+            return raw;
+          }
+        default:
+          return t;
+      }
+    }
+
+    function valueToBoolean(curVal) {
+      if (typeof curVal === 'boolean') return curVal;
+      if (typeof curVal === 'number') return curVal !== 0 && !Number.isNaN(curVal);
+      if (curVal === null || curVal === undefined) return false;
+      if (typeof curVal === 'string') {
+        const s = curVal.trim().toLowerCase();
+        if (['true', '1', 'yes', 'sí', 'si', 'verdadero'].includes(s)) return true;
+        if (['false', '0', 'no', 'falso', ''].includes(s)) return false;
+      }
+      return Boolean(curVal);
+    }
 
     const getStore = () => JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
     const saveStore = (name, data) => {
@@ -802,7 +845,7 @@
                 <div class="custom-dropdown mb-2">
                     <div class="dropdown-trigger" onclick="toggleDropdown('${id}')">
                         <div class="flex items-center gap-2">
-                            <span class="iconify text-blue-500" id="icon-${id}" data-icon="${ACTIONS[0].icon}"></span>
+                            <span class="iconify text-blue-500 w-4 h-4" id="icon-${id}" data-icon="${ACTIONS[0].icon}"></span>
                             <span id="label-${id}">${ACTIONS[0].label}</span>
                         </div>
                         <span class="iconify text-slate-300" data-icon="solar:alt-arrow-down-linear"></span>
@@ -816,11 +859,68 @@
                         `).join('')}
                     </div>
                 </div>
-                <div id="custom-val-container-${id}" class="hidden mt-3">
-                    <input type="text" placeholder="Escribe el valor personalizado..." class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] outline-none border-blue-100">
+                <div id="timestamp-opts-${id}" class="hidden mt-3 space-y-2">
+                    <span class="block text-[9px] font-medium text-slate-500">Unidad del timestamp</span>
+                    <div class="custom-dropdown mb-0">
+                        <div class="dropdown-trigger" onclick="toggleDropdown('ts-${id}')">
+                            <div class="flex items-center gap-2">
+                                <span class="iconify text-blue-500 w-4 h-4 shrink-0" id="icon-ts-${id}" data-icon="solar:stopwatch-linear"></span>
+                                <span id="label-ts-${id}">Milisegundos (ms)</span>
+                            </div>
+                            <span class="iconify text-slate-300 w-4 h-4 shrink-0" data-icon="solar:alt-arrow-down-linear"></span>
+                        </div>
+                        <div class="dropdown-menu" id="menu-ts-${id}">
+                            <div class="dropdown-item" onclick="selectTimestampUnit('${id}', 'ms')">
+                                <span class="iconify w-4 h-4" data-icon="solar:stopwatch-linear"></span>
+                                <span>Milisegundos (ms)</span>
+                            </div>
+                            <div class="dropdown-item" onclick="selectTimestampUnit('${id}', 's')">
+                                <span class="iconify w-4 h-4" data-icon="solar:clock-circle-linear"></span>
+                                <span>Segundos (s)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="custom-val-container-${id}" class="hidden mt-3 space-y-2">
+                    <span class="block text-[9px] font-medium text-slate-500">Tipo de valor</span>
+                    <div class="custom-dropdown mb-0">
+                        <div class="dropdown-trigger" onclick="toggleDropdown('ctype-${id}')">
+                            <div class="flex items-center gap-2">
+                                <span class="iconify text-blue-500 w-4 h-4 shrink-0" id="icon-ctype-${id}" data-icon="solar:text-field-linear"></span>
+                                <span id="label-ctype-${id}">Texto (string)</span>
+                            </div>
+                            <span class="iconify text-slate-300 w-4 h-4 shrink-0" data-icon="solar:alt-arrow-down-linear"></span>
+                        </div>
+                        <div class="dropdown-menu" id="menu-ctype-${id}">
+                            <div class="dropdown-item" onclick="selectCustomValueType('${id}', 'string')">
+                                <span class="iconify w-4 h-4" data-icon="solar:text-field-linear"></span>
+                                <span>Texto (string)</span>
+                            </div>
+                            <div class="dropdown-item" onclick="selectCustomValueType('${id}', 'number')">
+                                <span class="iconify w-4 h-4" data-icon="solar:hashtag-square-linear"></span>
+                                <span>Número</span>
+                            </div>
+                            <div class="dropdown-item" onclick="selectCustomValueType('${id}', 'boolean')">
+                                <span class="iconify w-4 h-4" data-icon="solar:check-circle-linear"></span>
+                                <span>Booleano</span>
+                            </div>
+                            <div class="dropdown-item" onclick="selectCustomValueType('${id}', 'null')">
+                                <span class="iconify w-4 h-4" data-icon="solar:close-circle-linear"></span>
+                                <span>Null</span>
+                            </div>
+                            <div class="dropdown-item" onclick="selectCustomValueType('${id}', 'json')">
+                                <span class="iconify w-4 h-4" data-icon="solar:code-square-linear"></span>
+                                <span>JSON (objeto o arreglo)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="text" placeholder="Valor según el tipo elegido…" class="custom-val-input w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] outline-none border-blue-100">
                 </div>
             `;
       list.appendChild(div);
+      div.dataset.timestampUnit = 'ms';
+      div.dataset.customValueType = 'string';
+      if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan(div);
     }
 
     function selectAction(id, act, label, icon) {
@@ -829,10 +929,49 @@
       document.getElementById(`label-${id}`).innerText = label;
       document.getElementById(`icon-${id}`).setAttribute('data-icon', icon);
       document.getElementById(`menu-${id}`).classList.remove('active');
+      document.getElementById(`menu-ts-${id}`)?.classList.remove('active');
+      document.getElementById(`menu-ctype-${id}`)?.classList.remove('active');
 
       const customInput = document.getElementById(`custom-val-container-${id}`);
+      const tsOpts = document.getElementById(`timestamp-opts-${id}`);
       if (act === 'custom') customInput.classList.remove('hidden');
       else customInput.classList.add('hidden');
+      if (act === 'timestamp') tsOpts.classList.remove('hidden');
+      else tsOpts.classList.add('hidden');
+    }
+
+    function selectTimestampUnit(ruleId, unit) {
+      const card = document.getElementById(ruleId);
+      if (!card) return;
+      card.dataset.timestampUnit = unit;
+      const labels = { ms: 'Milisegundos (ms)', s: 'Segundos (s)' };
+      const icons = { ms: 'solar:stopwatch-linear', s: 'solar:clock-circle-linear' };
+      const labelEl = document.getElementById('label-ts-' + ruleId);
+      const iconEl = document.getElementById('icon-ts-' + ruleId);
+      if (labelEl) labelEl.textContent = labels[unit] || labels.ms;
+      if (iconEl) iconEl.setAttribute('data-icon', icons[unit] || icons.ms);
+      document.getElementById('menu-ts-' + ruleId)?.classList.remove('active');
+      if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan();
+    }
+
+    function selectCustomValueType(ruleId, type) {
+      const card = document.getElementById(ruleId);
+      if (!card) return;
+      card.dataset.customValueType = type;
+      const meta = {
+        string: { label: 'Texto (string)', icon: 'solar:text-field-linear' },
+        number: { label: 'Número', icon: 'solar:hashtag-square-linear' },
+        boolean: { label: 'Booleano', icon: 'solar:check-read-linear' },
+        null: { label: 'Null', icon: 'solar:close-circle-linear' },
+        json: { label: 'JSON (objeto o arreglo)', icon: 'solar:code-square-linear' }
+      };
+      const m = meta[type] || meta.string;
+      const labelEl = document.getElementById('label-ctype-' + ruleId);
+      const iconEl = document.getElementById('icon-ctype-' + ruleId);
+      if (labelEl) labelEl.textContent = m.label;
+      if (iconEl) iconEl.setAttribute('data-icon', m.icon);
+      document.getElementById('menu-ctype-' + ruleId)?.classList.remove('active');
+      if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan();
     }
 
     function applyMassive() {
@@ -843,20 +982,32 @@
       target.forEach(item => {
         if (!item || typeof item !== 'object') return;
         rules.forEach(r => {
-          const field = r.querySelector('input').value;
+          const propInp = r.querySelector(':scope > div.flex.items-center.gap-2.mb-3 > input');
+          const propName = (propInp?.value ?? '').trim();
+          if (!propName) return;
           const action = r.dataset.action;
-          if (!field) return;
-          let curVal = getByPath(item, field);
+          let curVal = getByPath(item, propName);
           let newVal;
           switch (action) {
             case 'uuid': newVal = crypto.randomUUID(); break;
             case 'date': newVal = new Date().toISOString(); break;
-            case 'timestamp': newVal = Date.now(); break;
+            case 'timestamp': {
+              const unit = r.dataset.timestampUnit || 'ms';
+              newVal = unit === 's' ? Math.floor(Date.now() / 1000) : Date.now();
+              break;
+            }
             case 'to_str': newVal = String(curVal); break;
             case 'to_num': newVal = Number(curVal) || 0; break;
-            case 'custom': newVal = r.querySelector(`div[id^="custom-val-container"] input`).value; break;
+            case 'to_bool': newVal = valueToBoolean(curVal); break;
+            case 'custom': {
+              const rawInp = r.querySelector('.custom-val-input');
+              const vType = r.dataset.customValueType || 'string';
+              const raw = rawInp ? rawInp.value : '';
+              newVal = parseCustomValueByType(raw, vType);
+              break;
+            }
           }
-          setByPath(item, field, newVal);
+          setByPath(item, propName, newVal);
         });
       });
       saveStore(currentProjectName, jsonDb);
