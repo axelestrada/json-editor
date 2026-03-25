@@ -57,6 +57,12 @@
       display: flex;
     }
 
+    .mobile-nav button.active {
+      border-bottom: 3px solid var(--primary);
+      color: var(--primary);
+      font-weight: 800;
+    }
+
     /*
       Móvil: el único .tab-pane visible vive dentro de #workspaceLayout (flex-col + flex-1 + min-h-0).
       Con solo height:100% o un max-height suelto, los hijos flex-1 (árbol, CodeMirror) a veces no
@@ -70,12 +76,28 @@
         min-height: 0;
         max-height: 100%;
       }
-    }
 
-    .mobile-nav button.active {
-      border-bottom: 3px solid var(--primary);
-      color: var(--primary);
-      font-weight: 800;
+      .mobile-nav button {
+        padding-top: 0.375rem;
+        padding-bottom: 0.375rem;
+      }
+
+      .mobile-nav button.active {
+        border-bottom-width: 2px;
+      }
+
+      .structure-nav-head {
+        padding: 0.5rem 0.75rem;
+      }
+
+      .structure-nav-head .structure-nav-btn {
+        padding: 0.25rem;
+      }
+
+      .structure-nav-head .structure-nav-btn .iconify {
+        width: 1.125rem;
+        height: 1.125rem;
+      }
     }
 
     /* EDITOR: CodeMirror 6 (viewport rendering) */
@@ -431,14 +453,17 @@
 
       <div id="workspaceLayout" class="flex-1 flex flex-col min-h-0 overflow-hidden">
         <!-- Estructura -->
-        <aside id="pane-tree" class="tab-pane active border-r">
-          <div class="p-4 border-b flex justify-between items-center bg-slate-50/50">
+        <aside id="pane-tree" class="tab-pane active border-r max-lg:max-h-[180px]">
+          <div
+            class="structure-nav-head p-4 border-b flex justify-between items-center bg-slate-50/50 shrink-0 leading-none">
             <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Navegación</span>
-            <div class="flex gap-1">
-              <button onclick="expandAll()" class="text-slate-400 p-1.5"><span class="iconify w-5 h-5"
-                  data-icon="solar:maximize-square-linear"></span></button>
-              <button onclick="collapseAll()" class="text-slate-400 p-1.5"><span class="iconify w-5 h-5"
-                  data-icon="solar:minimize-square-linear"></span></button>
+            <div class="flex gap-0.5 items-center">
+              <button type="button" onclick="expandAll()"
+                class="structure-nav-btn text-slate-400 p-1.5 rounded-lg active:scale-95 transition-transform"><span
+                  class="iconify w-5 h-5" data-icon="solar:maximize-square-linear"></span></button>
+              <button type="button" onclick="collapseAll()"
+                class="structure-nav-btn text-slate-400 p-1.5 rounded-lg active:scale-95 transition-transform"><span
+                  class="iconify w-5 h-5" data-icon="solar:minimize-square-linear"></span></button>
             </div>
           </div>
           <div id="treeViewport" class="flex-1 overflow-auto relative custom-scrollbar bg-white">
@@ -472,8 +497,8 @@
                   title="Cerrar y volver al dashboard" aria-label="Cerrar"></button>
                 <button type="button" class="mac-traffic mac-minimize" onclick="editorMacMinimize()"
                   title="Ir a estructura" aria-label="Minimizar"></button>
-                <button type="button" class="mac-traffic mac-zoom" onclick="editorMacZoom()"
-                  title="Pantalla completa" aria-label="Zoom"></button>
+                <button type="button" class="mac-traffic mac-zoom" onclick="editorMacZoom()" title="Pantalla completa"
+                  aria-label="Zoom"></button>
               </div>
               <button type="button" class="editor-copy-btn" onclick="copyPreviewJson()" title="Copiar JSON"
                 aria-label="Copiar JSON">
@@ -531,8 +556,8 @@
   </div>
 
   <!-- Modal de confirmación -->
-  <div id="confirmModal" class="confirm-modal fixed inset-0 z-[2000] flex items-center justify-center p-4" aria-modal="true"
-    role="dialog" aria-labelledby="confirmTitle" aria-hidden="true">
+  <div id="confirmModal" class="confirm-modal fixed inset-0 z-[2000] flex items-center justify-center p-4"
+    aria-modal="true" role="dialog" aria-labelledby="confirmTitle" aria-hidden="true">
     <div id="confirmBackdrop" class="absolute inset-0 bg-slate-900/55"></div>
     <div id="confirmPanel"
       class="relative z-10 w-full max-w-sm bg-white rounded-[1.5rem] shadow-2xl border border-slate-100/80 overflow-hidden ring-1 ring-slate-900/5">
@@ -569,7 +594,7 @@
     let expandedPaths = new Set();
     let flatTree = [];
 
-    const NODE_H = 48;
+    const NODE_H = window.innerWidth < 1024 ? 40 : 48;
 
     const ACTIONS = [
       { id: 'uuid', label: 'ID Único (UUID)', icon: 'solar:hashtag-square-linear' },
@@ -683,7 +708,7 @@
                     </span>`
           : `<span class="w-8 h-full flex items-center justify-center -ml-2 shrink-0 pointer-events-none"></span>`;
         return `
-                <div class="flex items-center h-[48px] px-4 border-b border-slate-50 transition-all bg-white cursor-pointer" 
+                <div class="flex items-center h-[48px] max-lg:h-[40px] px-4 border-b border-slate-50 transition-all bg-white cursor-pointer" 
                      style="padding-left: ${n.level * 16 + 12}px" data-path="${enc}" onclick="treeRowActivate(this)">
                     ${toggleCol}
                     <span class="iconify mr-2 ${currentPathStr === n.full ? 'text-blue-700' : 'text-slate-400'} w-4 h-4 shrink-0" data-icon="${icon}"></span>
@@ -730,7 +755,7 @@
         document.documentElement.requestFullscreen().catch(() =>
           showToast('Pantalla completa no disponible', 'solar:danger-linear'));
       } else {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch(() => { });
       }
     }
 
@@ -853,16 +878,14 @@
       const ui = document.getElementById('editorUI');
       if (data && typeof data === 'object' && !Array.isArray(data)) {
         ui.innerHTML = `
-          <div class="space-y-2">
             <div class="flex flex-col sm:flex-row gap-2">
               <input type="text" id="newPropKeyInp" placeholder="Nombre de la propiedad"
                 class="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-mono outline-none focus:ring-2 focus:ring-blue-100">
               <input type="text" id="newPropValInp" placeholder="Valor (JSON: 42, true, null, [], {})"
                 class="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-mono outline-none focus:ring-2 focus:ring-blue-100">
-            </div>
-            <button type="button" onclick="addObjectProperty()"
+                <button type="button" onclick="addObjectProperty()"
               class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2.5 rounded-xl text-[9px] font-black uppercase active:scale-[0.98]">Añadir propiedad</button>
-          </div>`;
+            </div>`;
       } else {
         ui.innerHTML = "";
       }
