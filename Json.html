@@ -452,12 +452,12 @@
       const end = Math.min(flatTree.length, Math.ceil((vp.clientHeight + st) / NODE_H) + 5);
       cont.style.transform = `translateY(${start * NODE_H}px)`;
       cont.innerHTML = flatTree.slice(start, end).map(n => `
-                <div class="flex items-center h-[48px] px-4 border-b border-slate-50 transition-all ${currentPathStr === n.full ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'bg-white'}" 
+                <div class="flex items-center h-[48px] px-4 border-b border-slate-50 transition-all bg-white" 
                      style="padding-left: ${n.level * 16 + 12}px" onclick="selectNode('${n.full}')">
                     <span onclick="event.stopPropagation(); toggleNode('${n.full}')" class="w-8 h-full flex items-center justify-center -ml-2 text-slate-300">
                         ${n.hasChildren ? `<span class="iconify ${expandedPaths.has(n.full) ? 'rotate-90' : ''}" data-icon="solar:alt-arrow-right-linear"></span>` : ''}
                     </span>
-                    <span class="iconify mr-2 text-slate-300 w-4 h-4 shrink-0" data-icon="${n.isColl ? 'solar:folder-linear' : 'solar:file-linear'}"></span>
+                    <span class="iconify mr-2 ${currentPathStr === n.full ? 'text-blue-700' : 'text-slate-300'} w-4 h-4 shrink-0" data-icon="${n.isColl ? 'solar:folder-linear' : 'solar:file-linear'}"></span>
                     <span class="truncate font-mono text-[11px] ${currentPathStr === n.full ? 'text-blue-700 font-bold' : 'text-slate-600'}">${n.k}</span>
                 </div>
             `).join('');
