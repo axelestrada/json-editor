@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>JSON Master Pro v39 - Linear Icons & Custom Rules</title>
+  <title>JSON Master Pro v40 - CodeMirror 6</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
   <link
@@ -47,6 +47,7 @@
     .tab-pane {
       display: none;
       height: 100%;
+      min-height: 0;
       flex-direction: column;
       overflow: hidden;
       background: white;
@@ -62,60 +63,57 @@
       font-weight: 800;
     }
 
-    /* EDITOR VIRTUALIZADO */
-    #editorContainer {
-      background: #0F172A;
-      color: #38BDF8;
+    /* EDITOR: CodeMirror 6 (viewport rendering) */
+    .editor-viewport {
       flex: 1;
-      overflow: auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       position: relative;
+      background: #0F172A;
     }
 
-    .editor-runway {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      pointer-events: none;
+    #cmRoot {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
     }
 
-    .editor-content {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
+    #cmRoot .cm-editor {
+      height: 100%;
+    }
+
+    #cmRoot .cm-scroller {
       font-family: 'Fira Code', monospace;
       font-size: 13px;
-      line-height: 24px;
     }
 
-    .line-row {
-      display: flex;
-      padding: 0 12px;
-      height: 24px;
-      align-items: center;
+    #cmRoot .cm-content {
+      caret-color: #38bdf8;
     }
 
-    .line-num {
-      width: 35px;
-      color: #475569;
-      font-size: 10px;
-      text-align: right;
-      margin-right: 15px;
-      opacity: 0.5;
-      user-select: none;
-      -webkit-user-select: none;
+    #cmRoot .cm-cursor,
+    #cmRoot .cm-dropCursor {
+      border-left-color: #38bdf8 !important;
     }
 
-    .line-text {
-      flex: 1;
-      white-space: pre;
-      outline: none;
+    #cmRoot .cm-selectionBackground,
+    #cmRoot ::selection {
+      background: rgba(56, 189, 248, 0.22) !important;
     }
 
-    .editor-content.read-only .line-text {
-      cursor: default;
-      user-select: text;
+    #cmRoot .cm-activeLine {
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    #cmRoot .cm-gutters {
+      background: #0b1220;
+      border-right: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    #cmRoot .cm-activeLineGutter {
+      background: rgba(56, 189, 248, 0.08);
     }
 
     /* GRID ESCRITORIO */
@@ -249,7 +247,7 @@
     </section>
 
     <!-- WORKSPACE -->
-    <main id="editorView" class="hidden flex-1 flex flex-col overflow-hidden relative">
+    <main id="editorView" class="hidden flex-1 flex flex-col min-h-0 overflow-hidden relative">
 
       <div id="emptyState"
         class="absolute inset-0 z-[150] flex flex-col items-center justify-center bg-slate-50/90 backdrop-blur-sm p-6 text-center">
@@ -274,7 +272,7 @@
           class="flex-1 py-4 text-[10px] font-bold uppercase">Herramientas</button>
       </nav>
 
-      <div id="workspaceLayout" class="flex-1 flex flex-col overflow-hidden">
+      <div id="workspaceLayout" class="flex-1 flex flex-col min-h-0 overflow-hidden">
         <!-- Estructura -->
         <aside id="pane-tree" class="tab-pane active border-r">
           <div class="p-4 border-b flex justify-between items-center bg-slate-50/50">
@@ -293,7 +291,7 @@
         </aside>
 
         <!-- Editor -->
-        <section id="pane-edit" class="tab-pane bg-white flex flex-col">
+        <section id="pane-edit" class="tab-pane bg-white flex flex-col min-h-0">
           <div class="p-4 border-b flex justify-between items-center gap-2 shrink-0">
             <div class="flex flex-col min-w-0 flex-1">
               <span id="currentPath" class="text-[11px] font-mono font-bold text-blue-600 truncate">/root</span>
@@ -315,9 +313,8 @@
             </div>
           </div>
           <div id="editorUI" class="p-3 bg-slate-50 border-b shrink-0"></div>
-          <div id="editorContainer" class="custom-scrollbar" onscroll="renderEditor()">
-            <div id="editorRunway" class="editor-runway"></div>
-            <div id="editorContent" class="editor-content"></div>
+          <div id="editorContainer" class="editor-viewport">
+            <div id="cmRoot"></div>
           </div>
         </section>
 
@@ -372,10 +369,8 @@
     let currentPathStr = "";
     let expandedPaths = new Set();
     let flatTree = [];
-    let editorLines = [];
     let editorEditable = false;
 
-    const LINE_H = 24;
     const NODE_H = 48;
 
     const ACTIONS = [
@@ -474,9 +469,9 @@
       else info.innerText = `Tipo: ${typeof data}`;
       buildEditorUI(data);
       buildSchemaExplorer(data);
-      editorLines = JSON.stringify(data, null, 2).split('\n');
-      document.getElementById('editorRunway').style.height = `${editorLines.length * LINE_H + 100}px`;
-      document.getElementById('editorContainer').scrollTop = 0;
+      if (window.__jsonCm) {
+        window.__jsonCm.setDoc(JSON.stringify(data, null, 2));
+      }
       renderEditor();
       renderTree();
     }
@@ -503,50 +498,35 @@
       editorEditable = !editorEditable;
       syncEditorToolbar();
       renderEditor();
+      if (window.__jsonCm && editorEditable) window.__jsonCm.focus();
     }
 
     async function copyPreviewJson() {
-      const text = editorLines.join('\n');
+      const text = window.__jsonCm ? window.__jsonCm.getText() : '';
       try {
         await navigator.clipboard.writeText(text);
         showToast('JSON copiado al portapapeles', 'solar:copy-linear');
       } catch (err) {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
+        const fallback = document.createElement('textarea');
+        fallback.value = text;
+        fallback.setAttribute('readonly', '');
+        fallback.style.position = 'fixed';
+        fallback.style.left = '-9999px';
+        document.body.appendChild(fallback);
+        fallback.select();
         try {
           document.execCommand('copy');
           showToast('JSON copiado al portapapeles', 'solar:copy-linear');
         } catch (e) {
           showToast('No se pudo copiar', 'solar:danger-linear');
         }
-        document.body.removeChild(ta);
+        document.body.removeChild(fallback);
       }
     }
 
     function renderEditor() {
-      const vp = document.getElementById('editorContainer');
-      const cont = document.getElementById('editorContent');
-      if (!vp || !cont) return;
-      const st = vp.scrollTop;
-      const start = Math.max(0, Math.floor(st / LINE_H) - 5);
-      const end = Math.min(editorLines.length, Math.ceil((vp.clientHeight + st) / LINE_H) + 5);
-      cont.style.transform = `translateY(${start * LINE_H}px)`;
-      cont.classList.toggle('read-only', !editorEditable);
-      cont.innerHTML = editorLines.slice(start, end).map((line, i) => {
-        const idx = start + i;
-        const blurAttr = editorEditable ? ` onblur="editorLines[${idx}] = this.innerText"` : '';
-        return `
-                <div class="line-row">
-                    <span class="line-num">${idx + 1}</span>
-                    <div class="line-text" contenteditable="${editorEditable ? 'true' : 'false'}" spellcheck="false"${blurAttr}>${line}</div>
-                </div>
-            `;
-      }).join('');
+      if (!window.__jsonCm) return;
+      window.__jsonCm.setReadOnly(!editorEditable);
     }
 
     function addRule(prop = "") {
@@ -689,7 +669,18 @@
     }
 
     function deleteProject(n) { if (confirm("¿Eliminar proyecto?")) { const p = getStore(); delete p[n]; localStorage.setItem(STORE_KEY, JSON.stringify(p)); renderDashboard(); } }
-    function saveChanges() { try { const parsed = JSON.parse(editorLines.join('\n')); if (currentPathStr === "") jsonDb = parsed; else setByPath(jsonDb, currentPathStr, parsed); saveStore(currentProjectName, jsonDb); showToast("Guardado", "solar:check-circle-linear"); refreshTree(); selectNode(currentPathStr); } catch (e) { showToast("JSON Inválido", "solar:danger-linear"); } }
+    function saveChanges() {
+      if (!window.__jsonCm) return;
+      try {
+        const parsed = JSON.parse(window.__jsonCm.getText());
+        if (currentPathStr === "") jsonDb = parsed;
+        else setByPath(jsonDb, currentPathStr, parsed);
+        saveStore(currentProjectName, jsonDb);
+        showToast("Guardado", "solar:check-circle-linear");
+        refreshTree();
+        selectNode(currentPathStr);
+      } catch (e) { showToast("JSON Inválido", "solar:danger-linear"); }
+    }
     function deleteNode() { if (confirm("¿Eliminar nodo?")) { const parts = currentPathStr.split('.'); const last = parts.pop(); const parent = parts.length ? getByPath(jsonDb, parts.join('.')) : jsonDb; Array.isArray(parent) ? parent.splice(Number(last), 1) : delete parent[last]; currentPathStr = ""; saveStore(currentProjectName, jsonDb); refreshTree(); selectNode(""); } }
     function getByPath(obj, path) { if (!path) return obj; return path.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj); }
     function setByPath(obj, path, value) { const parts = path.split('.'); const last = parts.pop(); const parent = parts.reduce((acc, part) => { if (acc[part] == null) acc[part] = {}; return acc[part]; }, obj); parent[last] = value; }
@@ -714,7 +705,137 @@
     };
 
     window.onclick = (e) => { if (!e.target.closest('.custom-dropdown')) document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('active')); };
-    window.onload = () => { renderDashboard(); syncEditorToolbar(); };
+    window.onload = () => {
+      renderDashboard();
+      syncEditorToolbar();
+      if (window.__jsonCm) renderEditor();
+    };
+
+    window.__onJsonCmReady = () => {
+      syncEditorToolbar();
+      renderEditor();
+    };
+  </script>
+  <!-- unpkg dist/*.js (sin bundlear): imports bare → import map = una sola copia de @codemirror/state -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@codemirror/autocomplete": "https://unpkg.com/@codemirror/autocomplete@6.18.4/dist/index.js",
+        "@codemirror/commands": "https://unpkg.com/@codemirror/commands@6.8.0/dist/index.js",
+        "@codemirror/lang-json": "https://unpkg.com/@codemirror/lang-json@6.0.1/dist/index.js",
+        "@codemirror/language": "https://unpkg.com/@codemirror/language@6.11.0/dist/index.js",
+        "@codemirror/state": "https://unpkg.com/@codemirror/state@6.5.2/dist/index.js",
+        "@codemirror/view": "https://unpkg.com/@codemirror/view@6.36.4/dist/index.js",
+        "@lezer/common": "https://unpkg.com/@lezer/common@1.2.3/dist/index.js",
+        "@lezer/highlight": "https://unpkg.com/@lezer/highlight@1.2.1/dist/index.js",
+        "@lezer/json": "https://unpkg.com/@lezer/json@1.0.3/dist/index.js",
+        "@lezer/lr": "https://unpkg.com/@lezer/lr@1.4.2/dist/index.js",
+        "@marijn/find-cluster-break": "https://unpkg.com/@marijn/find-cluster-break@1.0.2/src/index.js",
+        "style-mod": "https://unpkg.com/style-mod@4.1.2/src/style-mod.js",
+        "w3c-keyname": "https://unpkg.com/w3c-keyname@2.2.8/index.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import {
+      EditorView,
+      lineNumbers,
+      highlightActiveLine,
+      highlightActiveLineGutter,
+      keymap,
+    } from "@codemirror/view";
+    import { EditorState, Compartment } from "@codemirror/state";
+    import {
+      defaultKeymap,
+      historyKeymap,
+      history,
+      indentWithTab,
+    } from "@codemirror/commands";
+    import { closeBrackets } from "@codemirror/autocomplete";
+    import { bracketMatching, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+    import { tags } from "@lezer/highlight";
+    import { json } from "@codemirror/lang-json";
+
+    const readOnlyConf = new Compartment();
+
+    const jsonSyntaxTheme = syntaxHighlighting(
+      HighlightStyle.define([
+        { tag: tags.keyword, color: "#38bdf8" },
+        { tag: tags.string, color: "#86efac" },
+        { tag: tags.number, color: "#fcd34d" },
+        { tag: tags.null, color: "#94a3b8" },
+        { tag: tags.bool, color: "#c4b5fd" },
+        { tag: tags.propertyName, color: "#7dd3fc" },
+      ])
+    );
+
+    const cmChromeTheme = EditorView.theme(
+      {
+        "&": { height: "100%", backgroundColor: "#0F172A" },
+        ".cm-scroller": { overflow: "auto" },
+        ".cm-gutters": { color: "#64748b" },
+        ".cm-content": { color: "#e2e8f0" },
+      },
+      { dark: true }
+    );
+
+    function buildExtensions(startReadOnly) {
+      return [
+        lineNumbers(),
+        highlightActiveLineGutter(),
+        highlightActiveLine(),
+        history(),
+        closeBrackets(),
+        bracketMatching(),
+        json(),
+        jsonSyntaxTheme,
+        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+        readOnlyConf.of(EditorState.readOnly.of(startReadOnly)),
+        cmChromeTheme,
+      ];
+    }
+
+    const parent = document.getElementById("cmRoot");
+    if (parent) {
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: "",
+          extensions: buildExtensions(true),
+        }),
+        parent,
+      });
+
+      const host = document.getElementById("editorContainer");
+      if (host) {
+        new ResizeObserver(() => view.requestMeasure()).observe(host);
+      }
+
+      window.__jsonCm = {
+        getText: () => view.state.doc.toString(),
+        setDoc: (text) => {
+          view.setState(
+            EditorState.create({
+              doc: text,
+              extensions: buildExtensions(true),
+            })
+          );
+          requestAnimationFrame(() => {
+            view.scrollDOM.scrollTop = 0;
+            view.scrollDOM.scrollLeft = 0;
+          });
+        },
+        setReadOnly: (ro) => {
+          view.dispatch({
+            effects: readOnlyConf.reconfigure(EditorState.readOnly.of(ro)),
+          });
+        },
+        focus: () => view.focus(),
+      };
+
+      if (typeof window.__onJsonCmReady === "function") {
+        window.__onJsonCmReady();
+      }
+    }
   </script>
 </body>
 
