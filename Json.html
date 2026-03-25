@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>JSON Master Pro v39 - Linear Icons & Custom Rules</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --primary: #006FEE;
+      --bg: #F1F5F9;
+    }
+
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    #app-root {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 10px;
+    }
+
+    /* Layout Base Móvil */
+    .tab-pane {
+      display: none;
+      height: 100%;
+      flex-direction: column;
+      overflow: hidden;
+      background: white;
+    }
+
+    .tab-pane.active {
+      display: flex;
+    }
+
+    .mobile-nav button.active {
+      border-bottom: 3px solid var(--primary);
+      color: var(--primary);
+      font-weight: 800;
+    }
+
+    /* EDITOR VIRTUALIZADO */
+    #editorContainer {
+      background: #0F172A;
+      color: #38BDF8;
+      flex: 1;
+      overflow: auto;
+      position: relative;
+    }
+
+    .editor-runway {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      pointer-events: none;
+    }
+
+    .editor-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+      line-height: 24px;
+    }
+
+    .line-row {
+      display: flex;
+      padding: 0 12px;
+      height: 24px;
+      align-items: center;
+    }
+
+    .line-num {
+      width: 35px;
+      color: #475569;
+      font-size: 10px;
+      text-align: right;
+      margin-right: 15px;
+      opacity: 0.5;
+    }
+
+    .line-text {
+      flex: 1;
+      white-space: pre;
+      outline: none;
+    }
+
+    /* GRID ESCRITORIO */
+    @media (min-width: 1024px) {
+      .mobile-nav {
+        display: none !important;
+      }
+
+      #workspaceLayout {
+        display: grid !important;
+        grid-template-columns: 300px 1fr 320px !important;
+        gap: 12px !important;
+        padding: 12px !important;
+        height: calc(100vh - 56px) !important;
+        align-items: stretch !important;
+      }
+
+      .tab-pane {
+        display: flex !important;
+        height: 100% !important;
+        border-radius: 1rem !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+      }
+    }
+
+    /* Dropdowns */
+    .custom-dropdown {
+      position: relative;
+      width: 100%;
+    }
+
+    .dropdown-trigger {
+      background: white;
+      border: 1px solid #E2E8F0;
+      padding: 10px 12px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 0;
+      width: 100%;
+      background: white;
+      border: 1px solid #E2E8F0;
+      border-radius: 12px;
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+      display: none;
+      z-index: 100;
+      overflow: hidden;
+    }
+
+    .dropdown-menu.active {
+      display: block;
+    }
+
+    .dropdown-item {
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dropdown-item:hover {
+      background: #F8FAFC;
+      color: var(--primary);
+    }
+
+    .rule-card {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    #emptyState.hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="app-root">
+    <!-- Header -->
+    <header class="h-14 border-b border-slate-200 bg-white px-4 flex items-center justify-between shrink-0 z-[100]">
+      <div class="flex items-center gap-2 cursor-pointer" onclick="showDashboard()">
+        <span class="iconify text-blue-600 w-6 h-6" data-icon="solar:programming-linear"></span>
+        <h1 class="text-[10px] font-black uppercase tracking-tighter">JSON<span class="text-blue-600">Master</span></h1>
+      </div>
+
+      <div id="topActions" class="hidden flex items-center gap-2">
+        <button onclick="saveChanges()"
+          class="bg-emerald-500 text-white p-2.5 rounded-xl active:scale-90 transition-transform">
+          <span class="iconify w-5 h-5" data-icon="solar:diskette-linear"></span>
+        </button>
+        <button onclick="exportJSON()"
+          class="bg-slate-900 text-white p-2.5 rounded-xl active:scale-90 transition-transform">
+          <span class="iconify w-5 h-5" data-icon="solar:download-minimalistic-linear"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- DASHBOARD -->
+    <section id="dashboardView" class="flex-1 overflow-y-auto p-5 custom-scrollbar bg-slate-50">
+      <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-end mb-8">
+          <div>
+            <h2 class="text-2xl font-black text-slate-800 tracking-tight">Proyectos Locales</h2>
+            <p class="text-[11px] text-slate-400 font-medium">Gestiona tus archivos JSON en el navegador.
+            </p>
+          </div>
+          <button onclick="document.getElementById('fileInput').click()"
+            class="bg-blue-600 text-white p-4 rounded-2xl shadow-xl shadow-blue-100 active:scale-95 transition-all">
+            <span class="iconify w-6 h-6" data-icon="solar:add-circle-linear"></span>
+          </button>
+          <input type="file" id="fileInput" class="hidden" accept=".json">
+        </div>
+        <div id="projectGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"></div>
+      </div>
+    </section>
+
+    <!-- WORKSPACE -->
+    <main id="editorView" class="hidden flex-1 flex flex-col overflow-hidden relative">
+
+      <div id="emptyState"
+        class="absolute inset-0 z-[150] flex flex-col items-center justify-center bg-slate-50/90 backdrop-blur-sm p-6 text-center">
+        <div class="bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 max-w-sm">
+          <span class="iconify w-16 h-16 text-slate-200 mx-auto mb-6" data-icon="solar:file-corrupted-linear"></span>
+          <h3 class="font-black text-slate-800 mb-2 uppercase text-[10px] tracking-widest">Archivo no activo
+          </h3>
+          <p class="text-[11px] text-slate-400 mb-8 px-4">Regresa al dashboard para cargar un archivo JSON.
+          </p>
+          <button onclick="showDashboard()"
+            class="w-full bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform">Dashboard</button>
+        </div>
+      </div>
+
+      <!-- Mobile Nav -->
+      <nav class="mobile-nav flex bg-white border-b border-slate-200 shrink-0">
+        <button onclick="switchTab('tree')" id="btn-tree"
+          class="flex-1 py-4 text-[10px] font-bold uppercase active">Estructura</button>
+        <button onclick="switchTab('edit')" id="btn-edit"
+          class="flex-1 py-4 text-[10px] font-bold uppercase">Editor</button>
+        <button onclick="switchTab('tools')" id="btn-tools"
+          class="flex-1 py-4 text-[10px] font-bold uppercase">Herramientas</button>
+      </nav>
+
+      <div id="workspaceLayout" class="flex-1 flex flex-col overflow-hidden">
+        <!-- Estructura -->
+        <aside id="pane-tree" class="tab-pane active border-r">
+          <div class="p-4 border-b flex justify-between items-center bg-slate-50/50">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Navegación</span>
+            <div class="flex gap-1">
+              <button onclick="expandAll()" class="text-slate-400 p-1.5"><span class="iconify w-5 h-5"
+                  data-icon="solar:maximize-square-linear"></span></button>
+              <button onclick="collapseAll()" class="text-slate-400 p-1.5"><span class="iconify w-5 h-5"
+                  data-icon="solar:minimize-square-linear"></span></button>
+            </div>
+          </div>
+          <div id="treeViewport" class="flex-1 overflow-auto relative custom-scrollbar bg-white">
+            <div id="treeRunway" class="absolute w-full pointer-events-none"></div>
+            <div id="treeContent" class="absolute w-full"></div>
+          </div>
+        </aside>
+
+        <!-- Editor -->
+        <section id="pane-edit" class="tab-pane bg-white flex flex-col">
+          <div class="p-4 border-b flex justify-between items-center shrink-0">
+            <div class="flex flex-col min-w-0">
+              <span id="currentPath" class="text-[11px] font-mono font-bold text-blue-600 truncate">/root</span>
+              <span id="nodeInfo" class="text-[9px] text-slate-400 uppercase font-black tracking-tighter">Nodo
+                raíz</span>
+            </div>
+            <button onclick="deleteNode()"
+              class="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl active:scale-90"><span
+                class="iconify w-5 h-5" data-icon="solar:trash-bin-trash-linear"></span></button>
+          </div>
+          <div id="editorUI" class="p-3 bg-slate-50 border-b shrink-0"></div>
+          <div id="editorContainer" class="custom-scrollbar" onscroll="renderEditor()">
+            <div id="editorRunway" class="editor-runway"></div>
+            <div id="editorContent" class="editor-content"></div>
+          </div>
+        </section>
+
+        <!-- Herramientas -->
+        <aside id="pane-tools" class="tab-pane border-l">
+          <div class="p-4 border-b bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            Utilidades Masivas</div>
+          <div id="bulkToolsContent" class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-6">
+            <div class="space-y-3">
+              <h3 class="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2">
+                <span class="iconify" data-icon="solar:graph-linear"></span> Esquema Detectado
+              </h3>
+              <div id="schemaExplorer" class="grid grid-cols-2 gap-2"></div>
+            </div>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <h3 class="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2">
+                  <span class="iconify" data-icon="solar:magic-stick-linear"></span> Reglas de
+                  Transformación
+                </h3>
+                <button onclick="addRule()" class="text-blue-600 text-[9px] font-black underline">+
+                  AÑADIR</button>
+              </div>
+              <div id="rulesList" class="space-y-3"></div>
+            </div>
+          </div>
+          <div class="p-4 border-t bg-white">
+            <button onclick="applyMassive()" id="btnApplyBulk"
+              class="w-full bg-slate-900 text-white py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest active:scale-95 shadow-lg">
+              Procesar Array
+            </button>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast UI -->
+  <div id="toast"
+    class="fixed bottom-10 left-1/2 -translate-x-1/2 translate-y-20 opacity-0 transition-all duration-300 z-[1000]">
+    <div
+      class="bg-slate-900 text-white px-6 py-4 rounded-[1.25rem] shadow-2xl flex items-center gap-3 font-bold text-[11px]">
+      <span id="toastIcon" class="iconify text-blue-400 w-5 h-5"></span>
+      <span id="toastMsg"></span>
+    </div>
+  </div>
+
+  <script>
+    const STORE_KEY = 'json_master_v39_storage';
+    let jsonDb = {};
+    let currentProjectName = "";
+    let currentPathStr = "";
+    let expandedPaths = new Set();
+    let flatTree = [];
+    let editorLines = [];
+
+    const LINE_H = 24;
+    const NODE_H = 48;
+
+    const ACTIONS = [
+      { id: 'uuid', label: 'ID Único (UUID)', icon: 'solar:hashtag-square-linear' },
+      { id: 'date', label: 'Fecha ISO 8601', icon: 'solar:calendar-linear' },
+      { id: 'timestamp', label: 'Timestamp ms', icon: 'solar:clock-circle-linear' },
+      { id: 'to_str', label: 'Convertir a Texto', icon: 'solar:text-field-linear' },
+      { id: 'to_num', label: 'Convertir a Número', icon: 'solar:sort-vertical-linear' },
+      { id: 'custom', label: 'Valor Personalizado', icon: 'solar:pen-linear' }
+    ];
+
+    const getStore = () => JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    const saveStore = (name, data) => {
+      const p = getStore();
+      p[name] = { data, date: new Date().toISOString(), size: JSON.stringify(data).length };
+      localStorage.setItem(STORE_KEY, JSON.stringify(p));
+      renderDashboard();
+    };
+
+    function switchTab(t) {
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById('pane-' + t).classList.add('active');
+      document.getElementById('btn-' + t).classList.add('active');
+      if (t === 'edit') setTimeout(renderEditor, 50);
+      if (t === 'tree') setTimeout(renderTree, 50);
+    }
+
+    function showDashboard() {
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('editorView').classList.add('hidden');
+      document.getElementById('topActions').classList.add('hidden');
+      renderDashboard();
+    }
+
+    function openProject(name) {
+      const p = getStore()[name];
+      if (!p) return;
+      currentProjectName = name;
+      jsonDb = p.data;
+      document.getElementById('dashboardView').classList.add('hidden');
+      document.getElementById('editorView').classList.remove('hidden');
+      document.getElementById('topActions').classList.remove('hidden');
+      document.getElementById('emptyState').classList.add('hidden');
+      expandedPaths.clear();
+      refreshTree();
+      selectNode("");
+      if (window.innerWidth < 1024) switchTab('tree');
+    }
+
+    function refreshTree() {
+      flatTree = [];
+      const walk = (obj, path = "", level = 0) => {
+        if (!obj || typeof obj !== 'object') return;
+        Object.keys(obj).forEach(k => {
+          const full = path ? `${path}.${k}` : k;
+          const val = obj[k];
+          const isColl = val && typeof val === 'object';
+          flatTree.push({ k, full, level, isColl, hasChildren: isColl && Object.keys(val).length > 0 });
+          if (isColl && expandedPaths.has(full)) walk(val, full, level + 1);
+        });
+      };
+      walk(jsonDb);
+      document.getElementById('treeRunway').style.height = `${flatTree.length * NODE_H}px`;
+      renderTree();
+    }
+
+    function renderTree() {
+      const vp = document.getElementById('treeViewport');
+      const cont = document.getElementById('treeContent');
+      if (!vp || !cont) return;
+      const st = vp.scrollTop;
+      const start = Math.max(0, Math.floor(st / NODE_H) - 5);
+      const end = Math.min(flatTree.length, Math.ceil((vp.clientHeight + st) / NODE_H) + 5);
+      cont.style.transform = `translateY(${start * NODE_H}px)`;
+      cont.innerHTML = flatTree.slice(start, end).map(n => `
+                <div class="flex items-center h-[48px] px-4 border-b border-slate-50 transition-all ${currentPathStr === n.full ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'bg-white'}" 
+                     style="padding-left: ${n.level * 16 + 12}px" onclick="selectNode('${n.full}')">
+                    <span onclick="event.stopPropagation(); toggleNode('${n.full}')" class="w-8 h-full flex items-center justify-center -ml-2 text-slate-300">
+                        ${n.hasChildren ? `<span class="iconify ${expandedPaths.has(n.full) ? 'rotate-90' : ''}" data-icon="solar:alt-arrow-right-linear"></span>` : ''}
+                    </span>
+                    <span class="iconify mr-2 text-slate-300 w-4 h-4 shrink-0" data-icon="${n.isColl ? 'solar:folder-linear' : 'solar:file-linear'}"></span>
+                    <span class="truncate font-mono text-[11px] ${currentPathStr === n.full ? 'text-blue-700 font-bold' : 'text-slate-600'}">${n.k}</span>
+                </div>
+            `).join('');
+    }
+    document.getElementById('treeViewport').onscroll = renderTree;
+
+    function selectNode(path) {
+      currentPathStr = path;
+      document.getElementById('currentPath').innerText = path || "/root";
+      const data = getByPath(jsonDb, path);
+      const info = document.getElementById('nodeInfo');
+      if (Array.isArray(data)) info.innerText = `Colección: ${data.length} elementos`;
+      else if (data && typeof data === 'object') info.innerText = `Objeto: ${Object.keys(data).length} props`;
+      else info.innerText = `Tipo: ${typeof data}`;
+      buildEditorUI(data);
+      buildSchemaExplorer(data);
+      editorLines = JSON.stringify(data, null, 2).split('\n');
+      document.getElementById('editorRunway').style.height = `${editorLines.length * LINE_H + 100}px`;
+      document.getElementById('editorContainer').scrollTop = 0;
+      renderEditor();
+      renderTree();
+    }
+
+    function renderEditor() {
+      const vp = document.getElementById('editorContainer');
+      const cont = document.getElementById('editorContent');
+      if (!vp || !cont) return;
+      const st = vp.scrollTop;
+      const start = Math.max(0, Math.floor(st / LINE_H) - 5);
+      const end = Math.min(editorLines.length, Math.ceil((vp.clientHeight + st) / LINE_H) + 5);
+      cont.style.transform = `translateY(${start * LINE_H}px)`;
+      cont.innerHTML = editorLines.slice(start, end).map((line, i) => `
+                <div class="line-row">
+                    <span class="line-num">${start + i + 1}</span>
+                    <div class="line-text" contenteditable="true" spellcheck="false" onblur="editorLines[${start + i}] = this.innerText">${line}</div>
+                </div>
+            `).join('');
+    }
+
+    function addRule(prop = "") {
+      const list = document.getElementById('rulesList');
+      const id = 'rule-' + Date.now();
+      const div = document.createElement('div');
+      div.className = "rule-card";
+      div.id = id;
+      div.dataset.action = "uuid";
+      div.innerHTML = `
+                <div class="flex items-center gap-2 mb-3">
+                    <input type="text" value="${prop}" placeholder="Propiedad..." class="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-mono outline-none">
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-slate-300 hover:text-red-500 p-1"><span class="iconify w-5 h-5" data-icon="solar:close-circle-linear"></span></button>
+                </div>
+                <div class="custom-dropdown mb-2">
+                    <div class="dropdown-trigger" onclick="toggleDropdown('${id}')">
+                        <div class="flex items-center gap-2">
+                            <span class="iconify text-blue-500" id="icon-${id}" data-icon="${ACTIONS[0].icon}"></span>
+                            <span id="label-${id}">${ACTIONS[0].label}</span>
+                        </div>
+                        <span class="iconify text-slate-300" data-icon="solar:alt-arrow-down-linear"></span>
+                    </div>
+                    <div class="dropdown-menu" id="menu-${id}">
+                        ${ACTIONS.map(a => `
+                            <div class="dropdown-item" onclick="selectAction('${id}', '${a.id}', '${a.label}', '${a.icon}')">
+                                <span class="iconify w-4 h-4" data-icon="${a.icon}"></span>
+                                <span>${a.label}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div id="custom-val-container-${id}" class="hidden mt-3">
+                    <input type="text" placeholder="Escribe el valor personalizado..." class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] outline-none border-blue-100">
+                </div>
+            `;
+      list.appendChild(div);
+    }
+
+    function selectAction(id, act, label, icon) {
+      const div = document.getElementById(id);
+      div.dataset.action = act;
+      document.getElementById(`label-${id}`).innerText = label;
+      document.getElementById(`icon-${id}`).setAttribute('data-icon', icon);
+      document.getElementById(`menu-${id}`).classList.remove('active');
+
+      const customInput = document.getElementById(`custom-val-container-${id}`);
+      if (act === 'custom') customInput.classList.remove('hidden');
+      else customInput.classList.add('hidden');
+    }
+
+    function applyMassive() {
+      const target = getByPath(jsonDb, currentPathStr);
+      if (!Array.isArray(target)) { showToast("Debes seleccionar un Array", "solar:danger-linear"); return; }
+      const rules = Array.from(document.querySelectorAll('#rulesList > .rule-card'));
+      if (rules.length === 0) return;
+      target.forEach(item => {
+        if (!item || typeof item !== 'object') return;
+        rules.forEach(r => {
+          const field = r.querySelector('input').value;
+          const action = r.dataset.action;
+          if (!field) return;
+          let curVal = getByPath(item, field);
+          let newVal;
+          switch (action) {
+            case 'uuid': newVal = crypto.randomUUID(); break;
+            case 'date': newVal = new Date().toISOString(); break;
+            case 'timestamp': newVal = Date.now(); break;
+            case 'to_str': newVal = String(curVal); break;
+            case 'to_num': newVal = Number(curVal) || 0; break;
+            case 'custom': newVal = r.querySelector(`div[id^="custom-val-container"] input`).value; break;
+          }
+          setByPath(item, field, newVal);
+        });
+      });
+      saveStore(currentProjectName, jsonDb);
+      showToast("Procesamiento completado", "solar:magic-stick-linear");
+      selectNode(currentPathStr);
+    }
+
+    function buildSchemaExplorer(data) {
+      const exp = document.getElementById('schemaExplorer');
+      exp.innerHTML = "";
+      if (!Array.isArray(data) || data.length === 0) return;
+      const keys = new Set();
+      data.slice(0, 30).forEach(i => { if (i && typeof i === 'object') Object.keys(i).forEach(k => keys.add(k)); });
+      keys.forEach(k => {
+        const b = document.createElement('button');
+        b.className = "p-2 bg-white border border-slate-100 rounded-xl text-[9px] font-mono text-left truncate hover:bg-blue-50";
+        b.innerHTML = `<span class="text-blue-500 mr-1">#</span>${k}`;
+        b.onclick = () => addRule(k);
+        exp.appendChild(b);
+      });
+    }
+
+    function buildEditorUI(data) {
+      const ui = document.getElementById('editorUI');
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        ui.innerHTML = `<div class="flex gap-2"><input id="keyInp" placeholder="Nueva propiedad..." class="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] outline-none"><button onclick="addKey()" class="bg-blue-600 text-white px-4 rounded-xl text-[9px] font-black uppercase">Añadir</button></div>`;
+      } else { ui.innerHTML = ""; }
+    }
+
+    function addKey() { const k = document.getElementById('keyInp').value; if (!k) return; getByPath(jsonDb, currentPathStr)[k] = ""; saveChanges(); }
+    function toggleDropdown(id) { document.querySelectorAll('.dropdown-menu').forEach(m => { if (m.id !== 'menu-' + id) m.classList.remove('active'); }); document.getElementById('menu-' + id).classList.toggle('active'); }
+
+    function formatSizeFromBytes(bytes) {
+      if (bytes === 0) return "0 B";
+
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      const k = 1024;
+
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      const size = bytes / Math.pow(k, i);
+
+      return `${size.toFixed(size < 10 ? 2 : 1)} ${units[i]}`;
+    }
+
+    function renderDashboard() {
+      const p = getStore();
+      const grid = document.getElementById('projectGrid');
+      grid.innerHTML = "";
+      Object.keys(p).forEach(name => {
+        const item = p[name];
+        const div = document.createElement('div');
+        div.className = "bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md cursor-pointer group transition-all";
+        div.onclick = () => openProject(name);
+        div.innerHTML = `
+                    <div class="w-12 h-12 bg-blue-600 text-slate-300 group-hover:text-white rounded-2xl flex items-center justify-center transition-colors mb-4">
+                        <span class="iconify w-6 h-6" data-icon="solar:file-text-linear"></span>
+                    </div>
+                    <h3 class="text-sm font-black text-slate-800 truncate">${name}</h3>
+                    <div class="flex justify-between items-center mt-3 pt-3 border-t border-slate-50">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase">${formatSizeFromBytes(item.size)}</span>
+                        <button onclick="event.stopPropagation(); deleteProject('${name}')" class="text-slate-300 hover:text-red-500 transition-colors">
+                            <span class="iconify w-5 h-5" data-icon="solar:trash-bin-trash-linear"></span>
+                        </button>
+                    </div>
+                `;
+        grid.appendChild(div);
+      });
+    }
+
+    function deleteProject(n) { if (confirm("¿Eliminar proyecto?")) { const p = getStore(); delete p[n]; localStorage.setItem(STORE_KEY, JSON.stringify(p)); renderDashboard(); } }
+    function saveChanges() { try { const parsed = JSON.parse(editorLines.join('\n')); if (currentPathStr === "") jsonDb = parsed; else setByPath(jsonDb, currentPathStr, parsed); saveStore(currentProjectName, jsonDb); showToast("Guardado", "solar:check-circle-linear"); refreshTree(); selectNode(currentPathStr); } catch (e) { showToast("JSON Inválido", "solar:danger-linear"); } }
+    function deleteNode() { if (confirm("¿Eliminar nodo?")) { const parts = currentPathStr.split('.'); const last = parts.pop(); const parent = parts.length ? getByPath(jsonDb, parts.join('.')) : jsonDb; Array.isArray(parent) ? parent.splice(Number(last), 1) : delete parent[last]; currentPathStr = ""; saveStore(currentProjectName, jsonDb); refreshTree(); selectNode(""); } }
+    function getByPath(obj, path) { if (!path) return obj; return path.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj); }
+    function setByPath(obj, path, value) { const parts = path.split('.'); const last = parts.pop(); const parent = parts.reduce((acc, part) => { if (acc[part] == null) acc[part] = {}; return acc[part]; }, obj); parent[last] = value; }
+    function toggleNode(p) { expandedPaths.has(p) ? expandedPaths.delete(p) : expandedPaths.add(p); refreshTree(); }
+    function expandAll() { const f = (o, p = "") => { if (o && typeof o === 'object') Object.keys(o).forEach(k => { const path = p ? `${p}.${k}` : k; expandedPaths.add(path); f(o[k], path); }); }; f(jsonDb); refreshTree(); }
+    function collapseAll() { expandedPaths.clear(); refreshTree(); }
+    function showToast(m, i) { const t = document.getElementById('toast'); document.getElementById('toastMsg').innerText = m; document.getElementById('toastIcon').setAttribute('data-icon', i); t.classList.remove('translate-y-20', 'opacity-0'); setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 2500); }
+    function exportJSON() { const b = new Blob([JSON.stringify(jsonDb, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `edit_${currentProjectName}`; a.click(); }
+
+    document.getElementById('fileInput').onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          saveStore(file.name, data);
+          openProject(file.name);
+        } catch (err) { showToast("Error JSON", "solar:danger-linear"); }
+      };
+      reader.readAsText(file);
+    };
+
+    window.onclick = (e) => { if (!e.target.closest('.custom-dropdown')) document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('active')); };
+    window.onload = renderDashboard;
+  </script>
+</body>
+
+</html>
