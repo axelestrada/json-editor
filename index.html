@@ -697,7 +697,7 @@
       if (Array.isArray(val)) return 'solar:layers-minimalistic-linear';
       if (typeof val === 'object') return 'solar:box-minimalistic-linear';
       if (typeof val === 'number') return 'solar:hashtag-square-linear';
-      if (typeof val === 'boolean') return 'solar:check-read-linear';
+      if (typeof val === 'boolean') return 'solar:check-circle-linear';
       return 'solar:text-field-linear';
     }
 
@@ -961,7 +961,7 @@
       const meta = {
         string: { label: 'Texto (string)', icon: 'solar:text-field-linear' },
         number: { label: 'Número', icon: 'solar:hashtag-square-linear' },
-        boolean: { label: 'Booleano', icon: 'solar:check-read-linear' },
+        boolean: { label: 'Booleano', icon: 'solar:check-circle-linear' },
         null: { label: 'Null', icon: 'solar:close-circle-linear' },
         json: { label: 'JSON (objeto o arreglo)', icon: 'solar:code-square-linear' }
       };
