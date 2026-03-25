@@ -39,7 +39,7 @@
     }
 
     .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: #ff0000;
+      background: #CBD5E1;
       border-radius: 10px;
     }
 
@@ -389,8 +389,11 @@
                 raíz</span>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" onclick="clearNodeValue()" title="Limpiar valor del nodo"
+                class="w-9 h-9 flex items-center justify-center text-slate-300 hover:text-amber-500 hover:bg-amber-50 transition-colors rounded-xl active:scale-90"><span
+                  class="iconify w-5 h-5" data-icon="solar:eraser-linear"></span></button>
               <button type="button" onclick="deleteNode()"
-                class="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl active:scale-90"><span
+                class="w-9 h-9 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors rounded-xl active:scale-90"><span
                   class="iconify w-5 h-5" data-icon="solar:trash-bin-trash-linear"></span></button>
             </div>
           </div>
@@ -518,6 +521,19 @@
       if (window.innerWidth < 1024) switchTab('tree');
     }
 
+    function iconForJsonValue(val) {
+      if (val === null) return 'solar:close-circle-linear';
+      if (Array.isArray(val)) return 'solar:layers-minimalistic-linear';
+      if (typeof val === 'object') return 'solar:box-minimalistic-linear';
+      if (typeof val === 'number') return 'solar:hashtag-square-linear';
+      if (typeof val === 'boolean') return 'solar:check-read-linear';
+      return 'solar:text-field-linear';
+    }
+
+    function escapeHtmlText(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     function refreshTree() {
       flatTree = [];
       const walk = (obj, path = "", level = 0) => {
@@ -526,13 +542,29 @@
           const full = path ? `${path}.${k}` : k;
           const val = obj[k];
           const isColl = val && typeof val === 'object';
-          flatTree.push({ k, full, level, isColl, hasChildren: isColl && Object.keys(val).length > 0 });
+          flatTree.push({
+            k,
+            full,
+            level,
+            isColl,
+            hasChildren: isColl && Object.keys(val).length > 0,
+            val
+          });
           if (isColl && expandedPaths.has(full)) walk(val, full, level + 1);
         });
       };
       walk(jsonDb);
       document.getElementById('treeRunway').style.height = `${flatTree.length * NODE_H}px`;
       renderTree();
+    }
+
+    function treeRowActivate(el) {
+      selectNode(decodeURIComponent(el.dataset.path || ''));
+    }
+
+    function treeToggleExpand(ev, el) {
+      ev.stopPropagation();
+      toggleNode(decodeURIComponent(el.dataset.path || ''));
     }
 
     function renderTree() {
@@ -543,16 +575,25 @@
       const start = Math.max(0, Math.floor(st / NODE_H) - 5);
       const end = Math.min(flatTree.length, Math.ceil((vp.clientHeight + st) / NODE_H) + 5);
       cont.style.transform = `translateY(${start * NODE_H}px)`;
-      cont.innerHTML = flatTree.slice(start, end).map(n => `
-                <div class="flex items-center h-[48px] px-4 border-b border-slate-50 transition-all bg-white" 
-                     style="padding-left: ${n.level * 16 + 12}px" onclick="selectNode('${n.full}')">
-                    <span onclick="event.stopPropagation(); toggleNode('${n.full}')" class="w-8 h-full flex items-center justify-center -ml-2 text-slate-300">
-                        ${n.hasChildren ? `<span class="iconify ${expandedPaths.has(n.full) ? 'rotate-90' : ''}" data-icon="solar:alt-arrow-right-linear"></span>` : ''}
-                    </span>
-                    <span class="iconify mr-2 ${currentPathStr === n.full ? 'text-blue-700' : 'text-slate-300'} w-4 h-4 shrink-0" data-icon="${n.isColl ? 'solar:folder-linear' : 'solar:file-linear'}"></span>
-                    <span class="truncate font-mono text-[11px] ${currentPathStr === n.full ? 'text-blue-700 font-bold' : 'text-slate-600'}">${n.k}</span>
+      cont.innerHTML = flatTree.slice(start, end).map(n => {
+        const enc = encodeURIComponent(n.full);
+        const icon = iconForJsonValue(n.val);
+        const keyHtml = escapeHtmlText(n.k);
+        const toggleCol = n.hasChildren
+          ? `<span class="w-8 h-full flex items-center justify-center -ml-2 text-slate-300 shrink-0" data-path="${enc}" onclick="treeToggleExpand(event, this)">
+                        <span class="iconify ${expandedPaths.has(n.full) ? 'rotate-90' : ''}" data-icon="solar:alt-arrow-right-linear"></span>
+                    </span>`
+          : `<span class="w-8 h-full flex items-center justify-center -ml-2 shrink-0 pointer-events-none"></span>`;
+        return `
+                <div class="flex items-center h-[48px] px-4 border-b border-slate-50 transition-all bg-white cursor-pointer" 
+                     style="padding-left: ${n.level * 16 + 12}px" data-path="${enc}" onclick="treeRowActivate(this)">
+                    ${toggleCol}
+                    <span class="iconify mr-2 ${currentPathStr === n.full ? 'text-blue-700' : 'text-slate-400'} w-4 h-4 shrink-0" data-icon="${icon}"></span>
+                    <span class="truncate font-mono text-[11px] ${currentPathStr === n.full ? 'text-blue-700 font-bold' : 'text-slate-600'}">${keyHtml}</span>
                 </div>
-            `).join('');
+            `;
+      }).join('');
+      if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan();
     }
     document.getElementById('treeViewport').onscroll = renderTree;
 
@@ -708,11 +749,83 @@
     function buildEditorUI(data) {
       const ui = document.getElementById('editorUI');
       if (data && typeof data === 'object' && !Array.isArray(data)) {
-        ui.innerHTML = `<div class="flex gap-2"><input id="keyInp" placeholder="Nueva propiedad..." class="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] outline-none"><button onclick="addKey()" class="bg-blue-600 text-white px-4 rounded-xl text-[9px] font-black uppercase">Añadir</button></div>`;
-      } else { ui.innerHTML = ""; }
+        ui.innerHTML = `
+          <div class="space-y-2">
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input type="text" id="newPropKeyInp" placeholder="Nombre de la propiedad"
+                class="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-mono outline-none focus:ring-2 focus:ring-blue-100">
+              <input type="text" id="newPropValInp" placeholder="Valor (JSON: 42, true, null, [], {})"
+                class="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-mono outline-none focus:ring-2 focus:ring-blue-100">
+            </div>
+            <button type="button" onclick="addObjectProperty()"
+              class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2.5 rounded-xl text-[9px] font-black uppercase active:scale-[0.98]">Añadir propiedad</button>
+          </div>`;
+      } else {
+        ui.innerHTML = "";
+      }
     }
 
-    function addKey() { const k = document.getElementById('keyInp').value; if (!k) return; getByPath(jsonDb, currentPathStr)[k] = ""; saveChanges(); }
+    function parseValueInput(raw) {
+      const t = (raw ?? '').trim();
+      if (t === '') return '';
+      try {
+        return JSON.parse(t);
+      } catch {
+        return raw;
+      }
+    }
+
+    function addObjectProperty() {
+      const keyInp = document.getElementById('newPropKeyInp');
+      const valInp = document.getElementById('newPropValInp');
+      if (!keyInp || !valInp) return;
+      const key = keyInp.value.trim();
+      if (!key) {
+        showToast('Escribe el nombre de la propiedad', 'solar:danger-linear');
+        return;
+      }
+      const target = getByPath(jsonDb, currentPathStr);
+      if (!target || typeof target !== 'object' || Array.isArray(target)) {
+        showToast('Solo puedes añadir propiedades en un objeto', 'solar:danger-linear');
+        return;
+      }
+      if (Object.prototype.hasOwnProperty.call(target, key)) {
+        showToast('Ya existe una propiedad con ese nombre', 'solar:danger-linear');
+        return;
+      }
+      target[key] = parseValueInput(valInp.value);
+      saveStore(currentProjectName, jsonDb);
+      showToast('Propiedad añadida', 'solar:check-circle-linear');
+      keyInp.value = '';
+      valInp.value = '';
+      refreshTree();
+      selectNode(currentPathStr);
+    }
+
+    function emptyShellForValue(sample) {
+      if (sample === null || sample === undefined) return null;
+      if (Array.isArray(sample)) return [];
+      if (typeof sample === 'object') return {};
+      if (typeof sample === 'number') return 0;
+      if (typeof sample === 'boolean') return false;
+      if (typeof sample === 'string') return '';
+      return null;
+    }
+
+    function clearNodeValue() {
+      if (!confirm('¿Limpiar este nodo al valor vacío según su tipo?')) return;
+      const cur = getByPath(jsonDb, currentPathStr);
+      const next = emptyShellForValue(cur);
+      if (currentPathStr === '') {
+        jsonDb = next;
+      } else {
+        setByPath(jsonDb, currentPathStr, next);
+      }
+      saveStore(currentProjectName, jsonDb);
+      showToast('Nodo limpiado', 'solar:eraser-linear');
+      refreshTree();
+      selectNode(currentPathStr);
+    }
     function toggleDropdown(id) { document.querySelectorAll('.dropdown-menu').forEach(m => { if (m.id !== 'menu-' + id) m.classList.remove('active'); }); document.getElementById('menu-' + id).classList.toggle('active'); }
 
     function formatSizeFromBytes(bytes) {
