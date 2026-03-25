@@ -39,7 +39,7 @@
     }
 
     .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: #CBD5E1;
+      background: #ff0000;
       border-radius: 10px;
     }
 
@@ -114,6 +114,96 @@
 
     #cmRoot .cm-activeLineGutter {
       background: rgba(56, 189, 248, 0.08);
+    }
+
+    .editor-chrome {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px 8px 14px;
+      pointer-events: none;
+    }
+
+    .editor-chrome>* {
+      pointer-events: auto;
+    }
+
+    .mac-traffic-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mac-traffic {
+      width: 12px;
+      height: 12px;
+      border-radius: 9999px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      padding: 0;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+
+    .mac-traffic:hover {
+      transform: scale(1.08);
+      filter: brightness(1.08);
+    }
+
+    .mac-traffic:active {
+      transform: scale(0.95);
+    }
+
+    .mac-close {
+      background: #ff5f57;
+      box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
+    }
+
+    .mac-minimize {
+      background: #febc2e;
+      box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
+    }
+
+    .mac-zoom {
+      background: #28c840;
+      box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
+    }
+
+    .editor-copy-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      color: #94a3b8;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+    }
+
+    .editor-copy-btn:hover {
+      background: rgba(51, 65, 85, 0.95);
+      color: #38bdf8;
+    }
+
+    .editor-copy-btn:active {
+      transform: scale(0.94);
+    }
+
+    .editor-cm-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      padding-top: 44px;
+      display: flex;
+      flex-direction: column;
     }
 
     /* GRID ESCRITORIO */
@@ -299,14 +389,6 @@
                 raíz</span>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
-              <button type="button" onclick="copyPreviewJson()" title="Copiar JSON"
-                class="w-9 h-9 flex items-center justify-center text-slate-600 bg-slate-100 rounded-xl active:scale-90 hover:bg-slate-200 transition-colors">
-                <span class="iconify w-5 h-5" data-icon="solar:copy-linear"></span>
-              </button>
-              <button type="button" id="btnToggleEdit" onclick="toggleEditorEditable()" title="Habilitar edición"
-                class="w-9 h-9 flex items-center justify-center text-slate-500 bg-slate-50 rounded-xl active:scale-90 transition-colors">
-                <span id="iconToggleEdit" class="iconify w-5 h-5" data-icon="solar:eye-linear"></span>
-              </button>
               <button type="button" onclick="deleteNode()"
                 class="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl active:scale-90"><span
                   class="iconify w-5 h-5" data-icon="solar:trash-bin-trash-linear"></span></button>
@@ -314,7 +396,23 @@
           </div>
           <div id="editorUI" class="p-3 bg-slate-50 border-b shrink-0"></div>
           <div id="editorContainer" class="editor-viewport">
-            <div id="cmRoot"></div>
+            <div class="editor-chrome">
+              <div class="mac-traffic-group" role="group" aria-label="Controles de ventana">
+                <button type="button" class="mac-traffic mac-close" onclick="editorMacClose()"
+                  title="Cerrar y volver al dashboard" aria-label="Cerrar"></button>
+                <button type="button" class="mac-traffic mac-minimize" onclick="editorMacMinimize()"
+                  title="Ir a estructura" aria-label="Minimizar"></button>
+                <button type="button" class="mac-traffic mac-zoom" onclick="editorMacZoom()"
+                  title="Pantalla completa" aria-label="Zoom"></button>
+              </div>
+              <button type="button" class="editor-copy-btn" onclick="copyPreviewJson()" title="Copiar JSON"
+                aria-label="Copiar JSON">
+                <span class="iconify w-5 h-5" data-icon="solar:copy-linear"></span>
+              </button>
+            </div>
+            <div class="editor-cm-wrap">
+              <div id="cmRoot"></div>
+            </div>
           </div>
         </section>
 
@@ -369,7 +467,6 @@
     let currentPathStr = "";
     let expandedPaths = new Set();
     let flatTree = [];
-    let editorEditable = false;
 
     const NODE_H = 48;
 
@@ -395,7 +492,7 @@
       document.querySelectorAll('.mobile-nav button').forEach(b => b.classList.remove('active'));
       document.getElementById('pane-' + t).classList.add('active');
       document.getElementById('btn-' + t).classList.add('active');
-      if (t === 'edit') setTimeout(renderEditor, 50);
+      if (t === 'edit') setTimeout(() => window.__jsonCm?.refreshLayout?.(), 50);
       if (t === 'tree') setTimeout(renderTree, 50);
     }
 
@@ -472,33 +569,25 @@
       if (window.__jsonCm) {
         window.__jsonCm.setDoc(JSON.stringify(data, null, 2));
       }
-      renderEditor();
       renderTree();
     }
 
-    function syncEditorToolbar() {
-      const btn = document.getElementById('btnToggleEdit');
-      const icon = document.getElementById('iconToggleEdit');
-      if (!btn || !icon) return;
-      if (editorEditable) {
-        icon.setAttribute('data-icon', 'solar:pen-linear');
-        btn.classList.add('bg-blue-50', 'text-blue-600');
-        btn.classList.remove('bg-slate-50', 'text-slate-500');
-        btn.title = 'Bloquear edición';
-      } else {
-        icon.setAttribute('data-icon', 'solar:eye-linear');
-        btn.classList.remove('bg-blue-50', 'text-blue-600');
-        btn.classList.add('bg-slate-50', 'text-slate-500');
-        btn.title = 'Habilitar edición';
-      }
-      if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan();
+    function editorMacClose() {
+      if (confirm('¿Volver al dashboard?')) showDashboard();
     }
 
-    function toggleEditorEditable() {
-      editorEditable = !editorEditable;
-      syncEditorToolbar();
-      renderEditor();
-      if (window.__jsonCm && editorEditable) window.__jsonCm.focus();
+    function editorMacMinimize() {
+      if (window.innerWidth < 1024) switchTab('tree');
+      else showToast('Estructura en el panel izquierdo', 'solar:sidebar-minimalistic-linear');
+    }
+
+    function editorMacZoom() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() =>
+          showToast('Pantalla completa no disponible', 'solar:danger-linear'));
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
     }
 
     async function copyPreviewJson() {
@@ -522,11 +611,6 @@
         }
         document.body.removeChild(fallback);
       }
-    }
-
-    function renderEditor() {
-      if (!window.__jsonCm) return;
-      window.__jsonCm.setReadOnly(!editorEditable);
     }
 
     function addRule(prop = "") {
@@ -707,13 +791,11 @@
     window.onclick = (e) => { if (!e.target.closest('.custom-dropdown')) document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('active')); };
     window.onload = () => {
       renderDashboard();
-      syncEditorToolbar();
-      if (window.__jsonCm) renderEditor();
+      window.__jsonCm?.refreshLayout?.();
     };
 
     window.__onJsonCmReady = () => {
-      syncEditorToolbar();
-      renderEditor();
+      window.__jsonCm?.refreshLayout?.();
     };
   </script>
   <!-- unpkg dist/*.js (sin bundlear): imports bare → import map = una sola copia de @codemirror/state -->
@@ -744,7 +826,7 @@
       highlightActiveLineGutter,
       keymap,
     } from "@codemirror/view";
-    import { EditorState, Compartment } from "@codemirror/state";
+    import { EditorState } from "@codemirror/state";
     import {
       defaultKeymap,
       historyKeymap,
@@ -755,8 +837,6 @@
     import { bracketMatching, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
     import { tags } from "@lezer/highlight";
     import { json } from "@codemirror/lang-json";
-
-    const readOnlyConf = new Compartment();
 
     const jsonSyntaxTheme = syntaxHighlighting(
       HighlightStyle.define([
@@ -779,7 +859,7 @@
       { dark: true }
     );
 
-    function buildExtensions(startReadOnly) {
+    function buildExtensions() {
       return [
         lineNumbers(),
         highlightActiveLineGutter(),
@@ -790,7 +870,6 @@
         json(),
         jsonSyntaxTheme,
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
-        readOnlyConf.of(EditorState.readOnly.of(startReadOnly)),
         cmChromeTheme,
       ];
     }
@@ -800,7 +879,7 @@
       const view = new EditorView({
         state: EditorState.create({
           doc: "",
-          extensions: buildExtensions(true),
+          extensions: buildExtensions(),
         }),
         parent,
       });
@@ -816,7 +895,7 @@
           view.setState(
             EditorState.create({
               doc: text,
-              extensions: buildExtensions(true),
+              extensions: buildExtensions(),
             })
           );
           requestAnimationFrame(() => {
@@ -824,11 +903,7 @@
             view.scrollDOM.scrollLeft = 0;
           });
         },
-        setReadOnly: (ro) => {
-          view.dispatch({
-            effects: readOnlyConf.reconfigure(EditorState.readOnly.of(ro)),
-          });
-        },
+        refreshLayout: () => view.requestMeasure(),
         focus: () => view.focus(),
       };
 
