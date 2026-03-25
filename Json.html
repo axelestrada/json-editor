@@ -57,6 +57,21 @@
       display: flex;
     }
 
+    /*
+      Móvil: el único .tab-pane visible vive dentro de #workspaceLayout (flex-col + flex-1 + min-h-0).
+      Con solo height:100% o un max-height suelto, los hijos flex-1 (árbol, CodeMirror) a veces no
+      reciben altura acotada y el layout “revienta”. Aquí el alto viene del flex item (flex + min-height:0)
+      y max-height:100% lo ancla al workspace, no al viewport suelto.
+    */
+    @media (max-width: 1023px) {
+      .tab-pane {
+        height: auto;
+        flex: 1 1 0%;
+        min-height: 0;
+        max-height: 100%;
+      }
+    }
+
     .mobile-nav button.active {
       border-bottom: 3px solid var(--primary);
       color: var(--primary);
