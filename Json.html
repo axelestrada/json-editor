@@ -463,6 +463,37 @@
     </div>
   </div>
 
+  <!-- Modal de confirmación -->
+  <div id="confirmModal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4" aria-modal="true"
+    role="dialog" aria-labelledby="confirmTitle">
+    <div id="confirmBackdrop" class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
+    <div
+      class="relative z-10 w-full max-w-sm bg-white rounded-[1.5rem] shadow-2xl border border-slate-100 overflow-hidden">
+      <div class="p-6 pt-5">
+        <div class="flex gap-3 mb-3">
+          <span id="confirmIconWrap"
+            class="shrink-0 w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <span id="confirmIcon" class="iconify w-6 h-6" data-icon="solar:question-circle-linear"></span>
+          </span>
+          <div class="min-w-0 flex-1 pt-0.5">
+            <h2 id="confirmTitle" class="text-sm font-black text-slate-800 tracking-tight leading-tight">Confirmar</h2>
+            <p id="confirmMessage" class="text-[11px] text-slate-500 font-medium mt-1.5 leading-relaxed"></p>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-5">
+          <button type="button" id="confirmCancelBtn"
+            class="flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] transition-all">
+            Cancelar
+          </button>
+          <button type="button" id="confirmOkBtn"
+            class="flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all">
+            Aceptar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const STORE_KEY = 'json_master_v39_storage';
     let jsonDb = {};
@@ -614,7 +645,12 @@
     }
 
     function editorMacClose() {
-      if (confirm('¿Volver al dashboard?')) showDashboard();
+      showConfirm({
+        title: 'Volver al dashboard',
+        message: 'Se cerrará la vista del proyecto. Lo que ya guardaste sigue en el almacenamiento local del navegador.',
+        confirmLabel: 'Salir',
+        cancelLabel: 'Permanecer aquí'
+      }).then((ok) => { if (ok) showDashboard(); });
     }
 
     function editorMacMinimize() {
@@ -813,18 +849,27 @@
     }
 
     function clearNodeValue() {
-      if (!confirm('¿Limpiar este nodo al valor vacío según su tipo?')) return;
-      const cur = getByPath(jsonDb, currentPathStr);
-      const next = emptyShellForValue(cur);
-      if (currentPathStr === '') {
-        jsonDb = next;
-      } else {
-        setByPath(jsonDb, currentPathStr, next);
-      }
-      saveStore(currentProjectName, jsonDb);
-      showToast('Nodo limpiado', 'solar:eraser-linear');
-      refreshTree();
-      selectNode(currentPathStr);
+      showConfirm({
+        title: 'Limpiar nodo',
+        message: 'El valor se restablecerá al vacío según el tipo: texto \"\", número 0, booleano false, null, objeto {}, arreglo [].',
+        confirmLabel: 'Limpiar',
+        cancelLabel: 'Cancelar',
+        danger: true,
+        icon: 'solar:eraser-linear'
+      }).then((ok) => {
+        if (!ok) return;
+        const cur = getByPath(jsonDb, currentPathStr);
+        const next = emptyShellForValue(cur);
+        if (currentPathStr === '') {
+          jsonDb = next;
+        } else {
+          setByPath(jsonDb, currentPathStr, next);
+        }
+        saveStore(currentProjectName, jsonDb);
+        showToast('Nodo limpiado', 'solar:eraser-linear');
+        refreshTree();
+        selectNode(currentPathStr);
+      });
     }
     function toggleDropdown(id) { document.querySelectorAll('.dropdown-menu').forEach(m => { if (m.id !== 'menu-' + id) m.classList.remove('active'); }); document.getElementById('menu-' + id).classList.toggle('active'); }
 
@@ -865,7 +910,22 @@
       });
     }
 
-    function deleteProject(n) { if (confirm("¿Eliminar proyecto?")) { const p = getStore(); delete p[n]; localStorage.setItem(STORE_KEY, JSON.stringify(p)); renderDashboard(); } }
+    function deleteProject(n) {
+      showConfirm({
+        title: 'Eliminar proyecto',
+        message: 'Se borrará del almacenamiento local del navegador. No se puede deshacer.',
+        confirmLabel: 'Eliminar',
+        cancelLabel: 'Cancelar',
+        danger: true,
+        icon: 'solar:trash-bin-trash-linear'
+      }).then((ok) => {
+        if (!ok) return;
+        const p = getStore();
+        delete p[n];
+        localStorage.setItem(STORE_KEY, JSON.stringify(p));
+        renderDashboard();
+      });
+    }
     function saveChanges() {
       if (!window.__jsonCm) return;
       try {
@@ -878,12 +938,89 @@
         selectNode(currentPathStr);
       } catch (e) { showToast("JSON Inválido", "solar:danger-linear"); }
     }
-    function deleteNode() { if (confirm("¿Eliminar nodo?")) { const parts = currentPathStr.split('.'); const last = parts.pop(); const parent = parts.length ? getByPath(jsonDb, parts.join('.')) : jsonDb; Array.isArray(parent) ? parent.splice(Number(last), 1) : delete parent[last]; currentPathStr = ""; saveStore(currentProjectName, jsonDb); refreshTree(); selectNode(""); } }
+    function deleteNode() {
+      showConfirm({
+        title: 'Eliminar nodo',
+        message: 'Este elemento se quitará del JSON. La raíz pasará a quedar vacía si era el único contenido.',
+        confirmLabel: 'Eliminar',
+        cancelLabel: 'Cancelar',
+        danger: true,
+        icon: 'solar:trash-bin-trash-linear'
+      }).then((ok) => {
+        if (!ok) return;
+        const parts = currentPathStr.split('.');
+        const last = parts.pop();
+        const parent = parts.length ? getByPath(jsonDb, parts.join('.')) : jsonDb;
+        Array.isArray(parent) ? parent.splice(Number(last), 1) : delete parent[last];
+        currentPathStr = "";
+        saveStore(currentProjectName, jsonDb);
+        refreshTree();
+        selectNode("");
+      });
+    }
     function getByPath(obj, path) { if (!path) return obj; return path.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj); }
     function setByPath(obj, path, value) { const parts = path.split('.'); const last = parts.pop(); const parent = parts.reduce((acc, part) => { if (acc[part] == null) acc[part] = {}; return acc[part]; }, obj); parent[last] = value; }
     function toggleNode(p) { expandedPaths.has(p) ? expandedPaths.delete(p) : expandedPaths.add(p); refreshTree(); }
     function expandAll() { const f = (o, p = "") => { if (o && typeof o === 'object') Object.keys(o).forEach(k => { const path = p ? `${p}.${k}` : k; expandedPaths.add(path); f(o[k], path); }); }; f(jsonDb); refreshTree(); }
     function collapseAll() { expandedPaths.clear(); refreshTree(); }
+    let confirmResolver = null;
+
+    function showConfirm(options) {
+      return new Promise((resolve) => {
+        if (confirmResolver) {
+          try { confirmResolver(false); } catch (e) { /* noop */ }
+        }
+        confirmResolver = resolve;
+
+        const modal = document.getElementById('confirmModal');
+        const titleEl = document.getElementById('confirmTitle');
+        const msgEl = document.getElementById('confirmMessage');
+        const okBtn = document.getElementById('confirmOkBtn');
+        const cancelBtn = document.getElementById('confirmCancelBtn');
+        const iconWrap = document.getElementById('confirmIconWrap');
+        const iconEl = document.getElementById('confirmIcon');
+
+        titleEl.textContent = options.title || 'Confirmar';
+        msgEl.textContent = options.message || '';
+        okBtn.textContent = options.confirmLabel || 'Aceptar';
+        cancelBtn.textContent = options.cancelLabel || 'Cancelar';
+
+        const danger = !!options.danger;
+        if (danger) {
+          iconWrap.className = 'shrink-0 w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center';
+          okBtn.className = 'flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-white bg-red-500 hover:bg-red-600 active:scale-[0.98] transition-all';
+        } else {
+          iconWrap.className = 'shrink-0 w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center';
+          okBtn.className = 'flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all';
+        }
+        iconEl.setAttribute('data-icon', options.icon || (danger ? 'solar:danger-linear' : 'solar:question-circle-linear'));
+
+        modal.classList.remove('hidden');
+        if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan();
+        okBtn.focus();
+      });
+    }
+
+    function finishConfirm(value) {
+      document.getElementById('confirmModal').classList.add('hidden');
+      const r = confirmResolver;
+      confirmResolver = null;
+      if (r) r(value);
+    }
+
+    (function initConfirmModal() {
+      document.getElementById('confirmCancelBtn').onclick = () => finishConfirm(false);
+      document.getElementById('confirmOkBtn').onclick = () => finishConfirm(true);
+      document.getElementById('confirmBackdrop').onclick = () => finishConfirm(false);
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const m = document.getElementById('confirmModal');
+        if (!confirmResolver || m.classList.contains('hidden')) return;
+        e.preventDefault();
+        finishConfirm(false);
+      });
+    })();
+
     function showToast(m, i) { const t = document.getElementById('toast'); document.getElementById('toastMsg').innerText = m; document.getElementById('toastIcon').setAttribute('data-icon', i); t.classList.remove('translate-y-20', 'opacity-0'); setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 2500); }
     function exportJSON() { const b = new Blob([JSON.stringify(jsonDb, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `edit_${currentProjectName}`; a.click(); }
 
