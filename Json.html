@@ -197,6 +197,58 @@
       transform: scale(0.94);
     }
 
+    /* Modal confirmación: entrada y salida suaves */
+    .confirm-modal {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .confirm-modal.confirm-modal--open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .confirm-modal #confirmBackdrop {
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .confirm-modal.confirm-modal--open #confirmBackdrop {
+      opacity: 1;
+    }
+
+    .confirm-modal #confirmPanel {
+      opacity: 0;
+      transform: scale(0.9) translateY(22px);
+      filter: blur(4px);
+      transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.48s cubic-bezier(0.34, 1.25, 0.64, 1),
+        filter 0.35s ease-out;
+    }
+
+    .confirm-modal.confirm-modal--open #confirmPanel {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      filter: blur(0);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      .confirm-modal,
+      .confirm-modal #confirmBackdrop,
+      .confirm-modal #confirmPanel {
+        transition-duration: 0.01ms !important;
+      }
+
+      .confirm-modal #confirmPanel {
+        filter: none !important;
+      }
+    }
+
     .editor-cm-wrap {
       flex: 1;
       min-height: 0;
@@ -464,11 +516,11 @@
   </div>
 
   <!-- Modal de confirmación -->
-  <div id="confirmModal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4" aria-modal="true"
-    role="dialog" aria-labelledby="confirmTitle">
-    <div id="confirmBackdrop" class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
-    <div
-      class="relative z-10 w-full max-w-sm bg-white rounded-[1.5rem] shadow-2xl border border-slate-100 overflow-hidden">
+  <div id="confirmModal" class="confirm-modal fixed inset-0 z-[2000] flex items-center justify-center p-4" aria-modal="true"
+    role="dialog" aria-labelledby="confirmTitle" aria-hidden="true">
+    <div id="confirmBackdrop" class="absolute inset-0 bg-slate-900/55"></div>
+    <div id="confirmPanel"
+      class="relative z-10 w-full max-w-sm bg-white rounded-[1.5rem] shadow-2xl border border-slate-100/80 overflow-hidden ring-1 ring-slate-900/5">
       <div class="p-6 pt-5">
         <div class="flex gap-3 mb-3">
           <span id="confirmIconWrap"
@@ -967,12 +1019,19 @@
 
     function showConfirm(options) {
       return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const wasOpen = modal.classList.contains('confirm-modal--open');
+
         if (confirmResolver) {
           try { confirmResolver(false); } catch (e) { /* noop */ }
         }
         confirmResolver = resolve;
 
-        const modal = document.getElementById('confirmModal');
+        if (wasOpen) {
+          modal.classList.remove('confirm-modal--open');
+          void modal.offsetWidth;
+        }
+
         const titleEl = document.getElementById('confirmTitle');
         const msgEl = document.getElementById('confirmMessage');
         const okBtn = document.getElementById('confirmOkBtn');
@@ -995,17 +1054,24 @@
         }
         iconEl.setAttribute('data-icon', options.icon || (danger ? 'solar:danger-linear' : 'solar:question-circle-linear'));
 
-        modal.classList.remove('hidden');
-        if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan();
-        okBtn.focus();
+        const runOpen = () => {
+          modal.setAttribute('aria-hidden', 'false');
+          modal.classList.add('confirm-modal--open');
+          if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan();
+          okBtn.focus();
+        };
+
+        requestAnimationFrame(() => requestAnimationFrame(runOpen));
       });
     }
 
     function finishConfirm(value) {
-      document.getElementById('confirmModal').classList.add('hidden');
+      const modal = document.getElementById('confirmModal');
       const r = confirmResolver;
       confirmResolver = null;
       if (r) r(value);
+      modal.classList.remove('confirm-modal--open');
+      modal.setAttribute('aria-hidden', 'true');
     }
 
     (function initConfirmModal() {
@@ -1015,7 +1081,7 @@
       document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
         const m = document.getElementById('confirmModal');
-        if (!confirmResolver || m.classList.contains('hidden')) return;
+        if (!confirmResolver || !m.classList.contains('confirm-modal--open')) return;
         e.preventDefault();
         finishConfirm(false);
       });
