@@ -611,9 +611,11 @@
       { id: 'custom', label: 'Valor Personalizado', icon: 'solar:pen-linear' }
     ];
 
-    function parseCustomValueByType(raw, type) {
+    function parseCustomValueByType(raw, type, item) {
       const t = (raw ?? '').trim();
       switch (type) {
+        case 'prop_ref':
+          return resolveItemPropertyRef(item, raw);
         case 'string':
           return raw == null ? '' : String(raw);
         case 'number': {
@@ -638,6 +640,27 @@
           }
         default:
           return t;
+      }
+    }
+
+    /** Ruta tipo $.name o name → valor desde el ítem del array */
+    function resolveItemPropertyRef(item, raw) {
+      let p = (raw ?? '').trim();
+      if (p.startsWith('$.')) p = p.slice(2);
+      else if (p === '$') return item;
+      else if (p.startsWith('$')) p = p.slice(1);
+      if (!p) return undefined;
+      return getByPath(item, p);
+    }
+
+    function compileRuleCondition(expr) {
+      const t = (expr ?? '').trim();
+      if (!t) return { ok: true, fn: null };
+      try {
+        const fn = new Function('$', `return !!(${t});`);
+        return { ok: true, fn };
+      } catch (e) {
+        return { ok: false, message: e.message || 'sintaxis inválida' };
       }
     }
 
@@ -842,6 +865,10 @@
                     <input type="text" value="${prop}" placeholder="Propiedad..." class="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-mono outline-none">
                     <button onclick="this.parentElement.parentElement.remove()" class="text-slate-300 hover:text-red-500 p-1"><span class="iconify w-5 h-5" data-icon="solar:close-circle-linear"></span></button>
                 </div>
+                <div class="mb-3 space-y-1">
+                    <span class="block text-[9px] font-medium text-slate-500">Condición (opcional, <span class="font-mono text-blue-600">$</span> = ítem del array)</span>
+                    <input type="text" class="rule-condition-input w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-mono outline-none" placeholder="Ej: $.description === null || $.name === &quot;&quot;">
+                </div>
                 <div class="custom-dropdown mb-2">
                     <div class="dropdown-trigger" onclick="toggleDropdown('${id}')">
                         <div class="flex items-center gap-2">
@@ -912,14 +939,19 @@
                                 <span class="iconify w-4 h-4" data-icon="solar:code-square-linear"></span>
                                 <span>JSON (objeto o arreglo)</span>
                             </div>
+                            <div class="dropdown-item" onclick="selectCustomValueType('${id}', 'prop_ref')">
+                                <span class="iconify w-4 h-4" data-icon="solar:link-minimalistic-linear"></span>
+                                <span>Otra propiedad ($.ruta)</span>
+                            </div>
                         </div>
                     </div>
-                    <input type="text" placeholder="Valor según el tipo elegido…" class="custom-val-input w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] outline-none border-blue-100">
+                    <input type="text" placeholder="Valor según el tipo elegido…" class="custom-val-input w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-mono outline-none border-blue-100">
                 </div>
             `;
       list.appendChild(div);
       div.dataset.timestampUnit = 'ms';
       div.dataset.customValueType = 'string';
+      updateCustomValPlaceholder(id);
       if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan(div);
     }
 
@@ -954,6 +986,22 @@
       if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan();
     }
 
+    function updateCustomValPlaceholder(ruleId) {
+      const card = document.getElementById(ruleId);
+      const inp = card?.querySelector('.custom-val-input');
+      if (!inp) return;
+      const type = card.dataset.customValueType || 'string';
+      const ph = {
+        string: 'Texto literal o cadena…',
+        number: 'Ej: 42',
+        boolean: 'true / false',
+        null: '(se ignora el valor)',
+        json: 'JSON: {}, [], 42, "hola"…',
+        prop_ref: 'Ej: $.name o descripcion.corta'
+      };
+      inp.placeholder = ph[type] || ph.string;
+    }
+
     function selectCustomValueType(ruleId, type) {
       const card = document.getElementById(ruleId);
       if (!card) return;
@@ -963,7 +1011,8 @@
         number: { label: 'Número', icon: 'solar:hashtag-square-linear' },
         boolean: { label: 'Booleano', icon: 'solar:check-circle-linear' },
         null: { label: 'Null', icon: 'solar:close-circle-linear' },
-        json: { label: 'JSON (objeto o arreglo)', icon: 'solar:code-square-linear' }
+        json: { label: 'JSON (objeto o arreglo)', icon: 'solar:code-square-linear' },
+        prop_ref: { label: 'Otra propiedad ($.ruta)', icon: 'solar:link-minimalistic-linear' }
       };
       const m = meta[type] || meta.string;
       const labelEl = document.getElementById('label-ctype-' + ruleId);
@@ -971,6 +1020,7 @@
       if (labelEl) labelEl.textContent = m.label;
       if (iconEl) iconEl.setAttribute('data-icon', m.icon);
       document.getElementById('menu-ctype-' + ruleId)?.classList.remove('active');
+      updateCustomValPlaceholder(ruleId);
       if (typeof Iconify !== 'undefined' && Iconify.scan) Iconify.scan();
     }
 
@@ -979,12 +1029,26 @@
       if (!Array.isArray(target)) { showToast("Debes seleccionar un Array", "solar:danger-linear"); return; }
       const rules = Array.from(document.querySelectorAll('#rulesList > .rule-card'));
       if (rules.length === 0) return;
+
+      const steps = [];
+      for (const r of rules) {
+        const propInp = r.querySelector(':scope > div.flex.items-center.gap-2.mb-3 > input');
+        const propName = (propInp?.value ?? '').trim();
+        if (!propName) continue;
+        const condInp = r.querySelector('.rule-condition-input');
+        const condCompiled = compileRuleCondition(condInp?.value ?? '');
+        if (!condCompiled.ok) {
+          showToast(`Condición inválida: ${condCompiled.message}`, "solar:danger-linear");
+          return;
+        }
+        steps.push({ r, propName, condFn: condCompiled.fn });
+      }
+      if (steps.length === 0) return;
+
       target.forEach(item => {
         if (!item || typeof item !== 'object') return;
-        rules.forEach(r => {
-          const propInp = r.querySelector(':scope > div.flex.items-center.gap-2.mb-3 > input');
-          const propName = (propInp?.value ?? '').trim();
-          if (!propName) return;
+        steps.forEach(({ r, propName, condFn }) => {
+          if (condFn && !condFn(item)) return;
           const action = r.dataset.action;
           let curVal = getByPath(item, propName);
           let newVal;
@@ -1003,7 +1067,7 @@
               const rawInp = r.querySelector('.custom-val-input');
               const vType = r.dataset.customValueType || 'string';
               const raw = rawInp ? rawInp.value : '';
-              newVal = parseCustomValueByType(raw, vType);
+              newVal = parseCustomValueByType(raw, vType, item);
               break;
             }
           }
@@ -1024,7 +1088,7 @@
       keys.forEach(k => {
         const b = document.createElement('button');
         b.className = "p-2 bg-white border border-slate-100 rounded-xl text-[9px] font-mono text-left truncate hover:bg-blue-50";
-        b.innerHTML = `<span class="text-blue-500 mr-1">#</span>${k}`;
+        b.innerHTML = `<span class="text-blue-500 mr-1 font-mono font-bold" title="En condiciones y valores usa $.${k}">$</span>${k}`;
         b.onclick = () => addRule(k);
         exp.appendChild(b);
       });
