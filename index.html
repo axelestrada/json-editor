@@ -182,8 +182,8 @@
     }
 
     .mac-traffic {
-      width: 12px;
-      height: 12px;
+      width: 14px;
+      height: 14px;
       border-radius: 9999px;
       border: 1px solid rgba(0, 0, 0, 0.12);
       padding: 0;
@@ -394,7 +394,7 @@
   <div id="app-root">
     <!-- Header -->
     <header class="h-14 border-b border-slate-200 bg-white px-4 flex items-center justify-between shrink-0 z-[100]">
-      <div class="flex items-center gap-2 cursor-pointer" onclick="showDashboard()">
+      <div class="flex items-center gap-2 cursor-pointer" onclick="navigateBackFromEditor()">
         <span class="iconify text-blue-600 w-6 h-6" data-icon="solar:programming-linear"></span>
         <h1 class="text-[10px] font-black uppercase tracking-tighter">JSON<span class="text-blue-600">Master</span></h1>
       </div>
@@ -441,7 +441,7 @@
           </h3>
           <p class="text-[11px] text-slate-400 mb-8 px-4">Regresa al dashboard para cargar un archivo JSON.
           </p>
-          <button onclick="showDashboard()"
+          <button onclick="navigateBackFromEditor()"
             class="w-full bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform">Dashboard</button>
         </div>
       </div>
@@ -693,16 +693,42 @@
       if (t === 'tree') setTimeout(renderTree, 50);
     }
 
-    function showDashboard() {
+    let exitSecondBackArmed = false;
+    let exitSecondBackTimer = null;
+
+    function clearExitSecondBackState() {
+      exitSecondBackArmed = false;
+      if (exitSecondBackTimer) {
+        clearTimeout(exitSecondBackTimer);
+        exitSecondBackTimer = null;
+      }
+    }
+
+    function isEditorViewOpen() {
+      return !document.getElementById('editorView').classList.contains('hidden');
+    }
+
+    function showDashboardUiOnly() {
       document.getElementById('dashboardView').classList.remove('hidden');
       document.getElementById('editorView').classList.add('hidden');
       document.getElementById('topActions').classList.add('hidden');
       renderDashboard();
     }
 
-    function openProject(name) {
+    /** Logo / atrás lógico: con editor abierto usa el historial (mismo efecto que Escape o botón atrás del móvil). */
+    function navigateBackFromEditor() {
+      if (!isEditorViewOpen()) return;
+      history.back();
+    }
+
+    function openProjectUiOnly(name) {
+      clearExitSecondBackState();
       const p = getStore()[name];
-      if (!p) return;
+      if (!p) {
+        showToast('Proyecto no encontrado', 'solar:danger-linear');
+        showDashboardUiOnly();
+        return;
+      }
       currentProjectName = name;
       jsonDb = p.data;
       document.getElementById('dashboardView').classList.add('hidden');
@@ -714,6 +740,72 @@
       selectNode("");
       if (window.innerWidth < 1024) switchTab('tree');
     }
+
+    function pushEditorHistoryEntry(name) {
+      const st = history.state;
+      if (!st || st.jm === 'base') {
+        history.replaceState({ jm: 'base' }, '', location.href);
+        history.pushState({ jm: 'dash' }, '', location.href);
+      }
+      history.pushState({ jm: 'editor', project: name }, '', location.href);
+    }
+
+    function openProject(name) {
+      const p = getStore()[name];
+      if (!p) return;
+      openProjectUiOnly(name);
+      pushEditorHistoryEntry(name);
+    }
+
+    function onAppPopState(ev) {
+      const st = ev.state;
+      if (st && st.jm === 'editor' && st.project) {
+        clearExitSecondBackState();
+        openProjectUiOnly(st.project);
+        return;
+      }
+      if (st && st.jm === 'dash') {
+        clearExitSecondBackState();
+        showDashboardUiOnly();
+        return;
+      }
+      if (st && st.jm === 'base') {
+        showDashboardUiOnly();
+        if (!exitSecondBackArmed) {
+          exitSecondBackArmed = true;
+          history.pushState({ jm: 'dash' }, '', location.href);
+          showToast('Presiona atrás otra vez para salir del sitio', 'solar:undo-left-linear');
+          exitSecondBackTimer = setTimeout(() => {
+            exitSecondBackArmed = false;
+            exitSecondBackTimer = null;
+          }, 4500);
+        }
+        return;
+      }
+      showDashboardUiOnly();
+    }
+
+    function onGlobalEscapeKeydown(e) {
+      if (e.key !== 'Escape') return;
+      const confirmModal = document.getElementById('confirmModal');
+      if (typeof confirmResolver === 'function' && confirmModal?.classList.contains('confirm-modal--open')) return;
+      if (!isEditorViewOpen()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      history.back();
+    }
+
+    function initAppHistoryNavigation() {
+      const cur = history.state;
+      if (!cur || cur.jm === undefined) {
+        history.replaceState({ jm: 'base' }, '', location.href);
+        history.pushState({ jm: 'dash' }, '', location.href);
+      }
+      window.addEventListener('popstate', onAppPopState);
+      document.addEventListener('keydown', onGlobalEscapeKeydown, true);
+    }
+
+    initAppHistoryNavigation();
 
     function iconForJsonValue(val) {
       if (val === null) return 'solar:close-circle-linear';
@@ -813,7 +905,7 @@
         message: 'Se cerrará la vista del proyecto. Lo que ya guardaste sigue en el almacenamiento local del navegador.',
         confirmLabel: 'Salir',
         cancelLabel: 'Permanecer aquí'
-      }).then((ok) => { if (ok) showDashboard(); });
+      }).then((ok) => { if (ok) navigateBackFromEditor(); });
     }
 
     function editorMacMinimize() {
