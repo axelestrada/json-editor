@@ -1500,7 +1500,14 @@
       indentWithTab,
     } from "@codemirror/commands";
     import { closeBrackets } from "@codemirror/autocomplete";
-    import { bracketMatching, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+    import {
+      bracketMatching,
+      syntaxHighlighting,
+      HighlightStyle,
+      codeFolding,
+      foldGutter,
+      foldKeymap,
+    } from "@codemirror/language";
     import { tags } from "@lezer/highlight";
     import { json } from "@codemirror/lang-json";
 
@@ -1521,21 +1528,83 @@
         ".cm-scroller": { overflow: "auto" },
         ".cm-gutters": { color: "#64748b" },
         ".cm-content": { color: "#e2e8f0" },
+        ".cm-foldGutter .cm-gutterElement": {
+          padding: "0 2px",
+          cursor: "pointer",
+          color: "#64748b",
+        },
+        ".cm-foldGutter .cm-gutterElement:hover": { color: "#94a3b8" },
+        ".cm-fold-marker": {
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "16px",
+          height: "1.4em",
+        },
+        ".cm-fold-marker .cm-fold-icon": {
+          width: "14px",
+          height: "14px",
+          color: "inherit",
+          flexShrink: "0",
+        },
+        ".cm-foldPlaceholder": {
+          background: "rgba(148, 163, 184, 0.12)",
+          border: "1px solid rgba(148, 163, 184, 0.2)",
+          borderRadius: "3px",
+          color: "#94a3b8",
+          padding: "0 3px",
+          margin: "0 1px",
+        },
       },
       { dark: true }
     );
 
+    /** Chevron SVG inline si Iconify no está disponible. */
+    function foldChevronSvg(direction) {
+      const d = direction === "down" ? "M6 9l6 6 6-6" : "M9 6l6 6-6 6";
+      return `<svg class="cm-fold-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+    }
+
+    function createFoldGutterMarker(open) {
+      const labelContraer = "Contraer bloque";
+      const labelExpandir = "Expandir bloque";
+      const wrap = document.createElement("span");
+      wrap.className = "cm-fold-marker";
+      wrap.title = open ? labelContraer : labelExpandir;
+      wrap.setAttribute("aria-label", open ? labelContraer : labelExpandir);
+
+      if (typeof Iconify !== "undefined") {
+        const icon = document.createElement("span");
+        icon.className = "iconify cm-fold-icon";
+        icon.setAttribute(
+          "data-icon",
+          open ? "solar:alt-arrow-down-linear" : "solar:alt-arrow-right-linear"
+        );
+        wrap.appendChild(icon);
+        queueMicrotask(() => {
+          if (typeof Iconify !== "undefined" && Iconify.scan) Iconify.scan(wrap);
+        });
+      } else {
+        wrap.innerHTML = foldChevronSvg(open ? "down" : "right");
+      }
+      return wrap;
+    }
+
     function buildExtensions() {
       return [
         lineNumbers(),
+        foldGutter({
+          markerDOM: createFoldGutterMarker,
+        }),
         highlightActiveLineGutter(),
         highlightActiveLine(),
+        codeFolding(),
         history(),
         closeBrackets(),
         bracketMatching(),
         json(),
         jsonSyntaxTheme,
-        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+        keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap, indentWithTab]),
         cmChromeTheme,
       ];
     }
